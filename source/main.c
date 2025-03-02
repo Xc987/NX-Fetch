@@ -102,12 +102,39 @@ int main(int argc, char **argv) {
 
     printf(CONSOLE_ESC(5;27H));
     printf("CFW: Atmosphere %s", versionString);
+
+    printf(CONSOLE_ESC(6;27H));
+    FILE *file = fopen("/bootloader/hekate_ipl.ini", "r");
+    if (file){
+        printf("Bootloader: Hekate IPL");
+        fclose(file);
+    } else {
+        printf("Bootloader: Unknown");
+    }
     
     while (appletMainLoop()) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
         if (kDown & HidNpadButton_Plus) {
             break;
+        }
+        u64 uptime_ticks = armGetSystemTick();
+        u64 uptime_seconds = uptime_ticks / 19200000;
+        printf(CONSOLE_ESC(7;27H));
+        if (uptime_seconds < 60) {
+            printf("Uptime: %lu seconds\n", uptime_seconds);
+        } else if (uptime_seconds < 3600) {
+            u64 uptime_minutes = uptime_seconds / 60;
+            u64 remaining_seconds = uptime_seconds % 60;
+            printf("Uptime: %lu minutes, %lu seconds\n", uptime_minutes, remaining_seconds);
+        } else if (uptime_seconds < 86400) {
+            u64 uptime_hours = uptime_seconds / 3600;
+            u64 remaining_minutes = (uptime_seconds % 3600) / 60;
+            printf("Uptime: %lu hours, %lu minutes\n", uptime_hours, remaining_minutes);
+        } else {
+            u64 uptime_days = uptime_seconds / 86400;
+            u64 remaining_hours = (uptime_seconds % 86400) / 3600;
+            printf("Uptime: %lu days, %lu hours\n", uptime_days, remaining_hours);
         }
         consoleUpdate(NULL);
     }
