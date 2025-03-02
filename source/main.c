@@ -1,6 +1,88 @@
 #include <stdio.h>
 #include <string.h>
 #include <switch.h>
+#include <dirent.h>
+#include <sys/stat.h>
+
+#define MAX_DEPTH 2
+#define CONTENT_PATH "/atmosphere/contents/"
+#define MAX_PATH_LEN 512
+
+int countNroFiles(const char *directory, int depth) {
+    if (depth > MAX_DEPTH) return 0;
+    int count = 0;
+    DIR *dir = opendir(directory);
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) { 
+            if (strstr(entry->d_name, ".nro")) {
+                count++;
+            }
+        } else if (entry->d_type == DT_DIR && depth < MAX_DEPTH) { 
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+                char newPath[PATH_MAX];
+                snprintf(newPath, sizeof(newPath), "%s/%s", directory, entry->d_name);
+                count += countNroFiles(newPath, depth + 1);
+            }
+        }
+    }
+    closedir(dir);
+    return count;
+}
+int countOvlFiles(const char *path) {
+    DIR *dir = opendir(path);
+    int count = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            const char *ext = strrchr(entry->d_name, '.');
+            if (ext && strcmp(ext, ".ovl") == 0) {
+                count++;
+            }
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+int countFoldersWithFlagAndExefsNsp() {
+    DIR *dir;
+    struct dirent *ent;
+    int count = 0;
+    if ((dir = opendir(CONTENT_PATH)) != NULL) {
+        while ((ent = readdir(dir)) != NULL) {
+            char folderPath[MAX_PATH_LEN];
+            char flagPath[MAX_PATH_LEN];
+            char exefsNspPath[MAX_PATH_LEN];
+            if (strlen(CONTENT_PATH) + strlen(ent->d_name) >= MAX_PATH_LEN) {
+                continue; 
+            }
+            strcpy(folderPath, CONTENT_PATH);
+            strcat(folderPath, ent->d_name);
+            struct stat st;
+            if (stat(folderPath, &st) == 0 && S_ISDIR(st.st_mode)) {
+                if (strlen(folderPath) + strlen("/flags") >= MAX_PATH_LEN) {
+                    printf("Path too long: %s/flags\n", folderPath);
+                    continue;
+                }
+                strcpy(flagPath, folderPath);
+                strcat(flagPath, "/flags");
+                if (strlen(folderPath) + strlen("/exefs.nsp") >= MAX_PATH_LEN) {
+                    printf("Path too long: %s/exefs.nsp\n", folderPath);
+                    continue;
+                }
+                strcpy(exefsNspPath, folderPath);
+                strcat(exefsNspPath, "/exefs.nsp");
+                if (stat(flagPath, &st) == 0 && S_ISDIR(st.st_mode) &&
+                    stat(exefsNspPath, &st) == 0 && S_ISREG(st.st_mode)) {
+                    count++;
+                }
+            }
+        }
+        closedir(dir);
+    }
+    return count;
+}
 
 int main(int argc, char **argv) {
     consoleInit(NULL);
@@ -111,7 +193,12 @@ int main(int argc, char **argv) {
     } else {
         printf("Bootloader: Unknown");
     }
-    
+    printf(CONSOLE_ESC(8;27H));
+    int nroCount = countNroFiles("/switch", 0);
+    int ovlCount = countOvlFiles("/switch/.overlays/");
+    int sysCount = countFoldersWithFlagAndExefsNsp();
+    printf("Packages: %d (nro), %d (ovl), %d (sys)", nroCount, ovlCount, sysCount);
+
     while (appletMainLoop()) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
