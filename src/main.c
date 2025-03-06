@@ -4,10 +4,14 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+bool both = false;
+bool userflag = false;
+int selected = 1;
+
 void printUptime() {
     u64 uptime_ticks = armGetSystemTick();
     u64 uptime_seconds = uptime_ticks / 19200000;
-    printf(CONSOLE_ESC(7;27H));
+    printf(CONSOLE_ESC(8;27H));
     if (uptime_seconds < 60) {
         printf("\e[38;5;33mUptime\e[38;5;255m: %lu seconds\n", uptime_seconds);
     } else if (uptime_seconds < 3600) {
@@ -112,38 +116,94 @@ int countFoldersWithFlagAndExefsNsp() {
     }
     return count;
 }
-
+void printAscii(char* c1, char* c2) {
+    printf("\n");
+    printf("%s%s%s%s", c1, "    ####### ", c2, "#######\n");
+    printf("%s%s%s%s", c1, "  ##      # ", c2, "#########\n");
+    printf("%s%s%s%s", c1, " #        # ", c2, "##########\n");
+    printf("%s%s%s%s", c1, "#   ###   # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#  #####  # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#  #####  # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#  #####  # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#   ###   # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "####   ####\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###     ###\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###     ###\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###     ###\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "####   ####\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, "#         # ", c2, "###########\n");
+    printf("%s%s%s%s", c1, " #        # ", c2, "########## \n");
+    printf("%s%s%s%s", c1, "  ##      # ", c2, "#########\n");
+    printf("%s%s%s%s", c1, "    ####### ", c2, "#######\n");
+}
+void callPrintAscii() {
+    if (selected == 1){
+        printAscii("\e[38;5;33m", "\e[38;5;196m");
+    } else if (selected == 2) {
+        printAscii("\e[38;5;242m", "\e[38;5;242m");
+    } else if (selected == 3) {
+        printAscii("\e[38;5;254m", "\e[38;5;254m");
+    } else if (selected == 4) {
+        printAscii("\e[38;5;157m", "\e[38;5;159m");
+    } else if (selected == 5) {
+        printAscii("\e[38;5;21m", "\e[38;5;227m");
+    } else if (selected == 6) {
+        printAscii("\e[38;5;172m", "\e[38;5;227m");
+    } else if (selected == 7) {
+        printAscii("\e[38;5;27m", "\e[38;5;220m");
+    } else if (selected == 8) {
+        printAscii("\e[38;5;220m", "\e[38;5;27m");
+    } else if (selected == 9) {
+        printAscii("\e[38;5;27m", "\e[38;5;57m");
+    } else if (selected == 10) {
+        printAscii("\e[38;5;196m", "\e[38;5;196m");
+    } else if (selected == 11) {
+        printAscii("\e[38;5;33m", "\e[38;5;33m");
+    } else if (selected == 12) {
+        printAscii("\e[38;5;40m", "\e[38;5;40m");
+    } else if (selected == 13) {
+        printAscii("\e[38;5;198m", "\e[38;5;198m");
+    } else if (selected == 14) {
+        printAscii("\e[38;5;129m", "\e[38;5;220m");
+    } else if (selected == 15) {
+        printAscii("\e[38;5;227m", "\e[38;5;227m");
+    } else if (selected == 16) {
+        printAscii("\e[38;5;225m", "\e[38;5;120m");
+    } else if (selected == 17) {
+        printAscii("\e[38;5;198m", "\e[38;5;40m");
+    }
+}
+void printConfig(const char *filename) {
+    char filepath[512];
+    snprintf(filepath, sizeof(filepath), "%s%s", "/bootloader/ini/", filename);
+    FILE *file = fopen(filepath, "r");
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        char *start = strchr(line, '[');
+        char *end = strchr(line, ']');
+        if (start && end && end > start + 1) {
+            *end = '\0';
+            if (both) {
+                printf(", ");
+            }
+            printf("%s",start + 1);
+            break;
+        }
+    }
+    fclose(file);
+}
 int main(int argc, char **argv) {
     consoleInit(NULL);
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-
-    printf("\n\e[38;5;33m    ####### \e[38;5;196m#######\n");
-    printf("\e[38;5;33m  ##      # \e[38;5;196m#########\n");
-    printf("\e[38;5;33m #        # \e[38;5;196m##########\n");
-    printf("\e[38;5;33m#   ###   # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#  #####  # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#  #####  # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#  #####  # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#   ###   # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m####   ####\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###     ###\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###     ###\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###     ###\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m####   ####\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m#         # \e[38;5;196m###########\n");
-    printf("\e[38;5;33m #        # \e[38;5;196m########## \n");
-    printf("\e[38;5;33m  ##      # \e[38;5;196m#########\n");
-    printf("\e[38;5;33m    ####### \e[38;5;196m#######\n");
+    printAscii("\e[38;5;33m", "\e[38;5;196m");
     consoleUpdate(NULL);
-
-    bool userflag = false;
 
     // Device nickname
     setsysInitialize();
@@ -216,34 +276,50 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(6;27H));
     FILE *file = fopen("/bootloader/hekate_ipl.ini", "r");
     if (file){
-        printf("\e[38;5;33mBootloader\e[38;5;255m: Hekate IPL");
+        printf("\e[38;5;33mBL\e[38;5;255m: Hekate IPL");
         fclose(file);
     } else {
-        printf("\e[38;5;33mBootloader\e[38;5;255m: Unknown");
+        printf("\e[38;5;33mBL\e[38;5;255m: Unknown");
     }
     consoleUpdate(NULL);
+    // Bootloader configs
+    DIR *dir = opendir("/bootloader/ini/");
+    
+    printf(CONSOLE_ESC(7;27H));
+    printf("\e[38;5;33mBL configs\e[38;5;255m: ");
+    struct dirent *entry;
+    while ((entry = readdir(dir))) {
+        if (strstr(entry->d_name, ".ini")) {
+            printConfig(entry->d_name);
+            both = true;
+        }
+    }
+    if (!both) {
+        printf("None");
+    }
+    closedir(dir);
     // System uptime
     printUptime();
     // Packages
     int nroCount = countNroFiles("/switch", 0);
     int ovlCount = countOvlFiles("/switch/.overlays/");
     int sysCount = countFoldersWithFlagAndExefsNsp();
-    printf(CONSOLE_ESC(8;27H));
+    printf(CONSOLE_ESC(9;27H));
     printf("\e[38;5;33mPackages\e[38;5;255m: %d (nro), %d (ovl), %d (sys)", nroCount, ovlCount, sysCount);
     consoleUpdate(NULL);
     // Screen resolution
     u32 width, height;
     NWindow* nw = nwindowGetDefault();
     nwindowGetDimensions(nw, &width, &height);
-    printf(CONSOLE_ESC(9;27H));
+    printf(CONSOLE_ESC(10;27H));
     printf("\e[38;5;33mResolution\e[38;5;255m: %d x %d ", width, height);
     consoleUpdate(NULL);
     // CPU
-    printf(CONSOLE_ESC(10;27H));
+    printf(CONSOLE_ESC(11;27H));
     printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
     consoleUpdate(NULL);
     // GPU
-    printf(CONSOLE_ESC(11;27H));
+    printf(CONSOLE_ESC(12;27H));
     printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
     consoleUpdate(NULL);
     // Memory
@@ -251,7 +327,7 @@ int main(int argc, char **argv) {
     u64 usedRam = 0;
     svcGetInfo(&totalRam, InfoType_TotalMemorySize, CUR_PROCESS_HANDLE, 0);
     svcGetInfo(&usedRam, InfoType_UsedMemorySize, CUR_PROCESS_HANDLE, 0);
-    printf(CONSOLE_ESC(12;27H));
+    printf(CONSOLE_ESC(13;27H));
     printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
     consoleUpdate(NULL);
     // SD card
@@ -262,7 +338,7 @@ int main(int argc, char **argv) {
     double totalSpaceGB = (double)totalSpaceBytes / (1024 * 1024 * 1024);
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
-    printf(CONSOLE_ESC(13;27H));
+    printf(CONSOLE_ESC(14;27H));
     printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
     consoleUpdate(NULL);
     // NAND
@@ -277,13 +353,13 @@ int main(int argc, char **argv) {
     double leftSpaceGB2 = totalSpaceGB2 - freeSpaceGB2;
     fsFsClose(&userFs);
     fsExit();
-    printf(CONSOLE_ESC(14;27H));
+    printf(CONSOLE_ESC(15;27H));
     printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     consoleUpdate(NULL);
     // Fancy color blocks
-    printf(CONSOLE_ESC(16;27H));
-    printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
     printf(CONSOLE_ESC(17;27H));
+    printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
+    printf(CONSOLE_ESC(18;27H));
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
         padUpdate(&pad);
@@ -291,12 +367,26 @@ int main(int argc, char **argv) {
         if (kDown & HidNpadButton_Plus) {
             break;
         }
+        if (kDown & HidNpadButton_AnyRight) {
+            if (selected != 17) {
+                selected = selected + 1;
+                printf(CONSOLE_ESC(1;1H));
+                callPrintAscii();
+            }
+        }
+        if (kDown & HidNpadButton_AnyLeft) {
+            if (selected != 1) {
+                selected = selected - 1;
+                printf(CONSOLE_ESC(1;1H));
+                callPrintAscii();
+            }
+        }
         printUptime();
-        printf(CONSOLE_ESC(10;27H));
-        printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
         printf(CONSOLE_ESC(11;27H));
-        printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
+        printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
         printf(CONSOLE_ESC(12;27H));
+        printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
+        printf(CONSOLE_ESC(13;27H));
         printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
         consoleUpdate(NULL);
     }
