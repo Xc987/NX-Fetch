@@ -8,26 +8,6 @@ bool both = false;
 bool userflag = false;
 int selected = 1;
 
-void printUptime() {
-    u64 uptime_ticks = armGetSystemTick();
-    u64 uptime_seconds = uptime_ticks / 19200000;
-    printf(CONSOLE_ESC(8;27H));
-    if (uptime_seconds < 60) {
-        printf("\e[38;5;33mUptime\e[38;5;255m: %lu seconds\n", uptime_seconds);
-    } else if (uptime_seconds < 3600) {
-        u64 uptime_minutes = uptime_seconds / 60;
-        u64 remaining_seconds = uptime_seconds % 60;
-        printf("\e[38;5;33mUptime\e[38;5;255m: %lu minutes, %lu seconds\n", uptime_minutes, remaining_seconds);
-    } else if (uptime_seconds < 86400) {
-        u64 uptime_hours = uptime_seconds / 3600;
-        u64 remaining_minutes = (uptime_seconds % 3600) / 60;
-        printf("\e[38;5;33mUptime\e[38;5;255m: %lu hours, %lu minutes\n", uptime_hours, remaining_minutes);
-    } else {
-        u64 uptime_days = uptime_seconds / 86400;
-        u64 remaining_hours = (uptime_seconds % 86400) / 3600;
-        printf("\e[38;5;33mUptime\e[38;5;255m: %lu days, %lu hours\n", uptime_days, remaining_hours);
-    }
-}
 u32 GetClock(PcvModule module) {
     u32 out = 0;
     if (hosversionAtLeast(8, 0, 0)) {
@@ -80,7 +60,7 @@ int countOvlFiles(const char *path) {
     return count;
 }
 
-int countFoldersWithFlagAndExefsNsp() {
+int countSysFolders() {
     DIR *dir;
     struct dirent *ent;
     int count = 0;
@@ -299,11 +279,28 @@ int main(int argc, char **argv) {
     }
     closedir(dir);
     // System uptime
-    printUptime();
+    u64 uptime_ticks = armGetSystemTick();
+    u64 uptime_seconds = uptime_ticks / 19200000;
+    printf(CONSOLE_ESC(8;27H));
+    if (uptime_seconds < 60) {
+        printf("\e[38;5;33mUptime\e[38;5;255m: %lu seconds\n", uptime_seconds);
+    } else if (uptime_seconds < 3600) {
+        u64 uptime_minutes = uptime_seconds / 60;
+        u64 remaining_seconds = uptime_seconds % 60;
+        printf("\e[38;5;33mUptime\e[38;5;255m: %lu minutes, %lu seconds\n", uptime_minutes, remaining_seconds);
+    } else if (uptime_seconds < 86400) {
+        u64 uptime_hours = uptime_seconds / 3600;
+        u64 remaining_minutes = (uptime_seconds % 3600) / 60;
+        printf("\e[38;5;33mUptime\e[38;5;255m: %lu hours, %lu minutes\n", uptime_hours, remaining_minutes);
+    } else {
+        u64 uptime_days = uptime_seconds / 86400;
+        u64 remaining_hours = (uptime_seconds % 86400) / 3600;
+        printf("\e[38;5;33mUptime\e[38;5;255m: %lu days, %lu hours\n", uptime_days, remaining_hours);
+    }
     // Packages
     int nroCount = countNroFiles("/switch", 0);
     int ovlCount = countOvlFiles("/switch/.overlays/");
-    int sysCount = countFoldersWithFlagAndExefsNsp();
+    int sysCount = countSysFolders();
     printf(CONSOLE_ESC(9;27H));
     printf("\e[38;5;33mPackages\e[38;5;255m: %d (nro), %d (ovl), %d (sys)", nroCount, ovlCount, sysCount);
     consoleUpdate(NULL);
@@ -356,10 +353,24 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(15;27H));
     printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     consoleUpdate(NULL);
+    // Battery
+    psmInitialize();
+    u32 batteryCharge;
+    psmGetBatteryChargePercentage(&batteryCharge);
+    printf(CONSOLE_ESC(16;27H));
+    printf("\e[38;5;33mBattery\e[38;5;255m: %d%%", batteryCharge);
+    PsmChargerType chargerType;
+    psmGetChargerType(&chargerType);
+    if (chargerType != PsmChargerType_Unconnected){
+        printf(" [Charging]");
+    } else {
+        printf(" [Discharging]");
+    }
+    psmExit();
     // Fancy color blocks
-    printf(CONSOLE_ESC(17;27H));
-    printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
     printf(CONSOLE_ESC(18;27H));
+    printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
+    printf(CONSOLE_ESC(19;27H));
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
         padUpdate(&pad);
@@ -381,13 +392,6 @@ int main(int argc, char **argv) {
                 callPrintAscii();
             }
         }
-        printUptime();
-        printf(CONSOLE_ESC(11;27H));
-        printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
-        printf(CONSOLE_ESC(12;27H));
-        printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
-        printf(CONSOLE_ESC(13;27H));
-        printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
         consoleUpdate(NULL);
     }
     consoleExit(NULL);
