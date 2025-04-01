@@ -1,13 +1,48 @@
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <switch.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include <dirent.h>
-#include <sys/stat.h>
 
 bool both = false;
 bool userflag = false;
 int selected = 1;
 
+const char* getRegionName(u64 region) {
+    switch (region) {
+        case SetRegion_JPN: return "JP";
+        case SetRegion_USA: return "US";
+        case SetRegion_EUR: return "EU";
+        case SetRegion_AUS: return "AU";
+        case SetRegion_HTK: return "HK";
+        case SetRegion_CHN: return "CN";
+        default: return "Unknown";
+    }
+}
+const char* GetLanguageName(u64 languageCode) {
+    switch (languageCode) {
+        case SetLanguage_JA: return "jp";
+        case SetLanguage_ENUS: return "us";
+        case SetLanguage_ENGB: return "uk";
+        case SetLanguage_FR: return "fr";
+        case SetLanguage_DE: return "de";
+        case SetLanguage_IT: return "it";
+        case SetLanguage_ES: return "es";
+        case SetLanguage_ZHCN: return "cn";
+        case SetLanguage_KO: return "kr";
+        case SetLanguage_NL: return "nl";
+        case SetLanguage_PT: return "pt";
+        case SetLanguage_RU: return "ru";
+        case SetLanguage_ZHTW: return "cn";
+        case SetLanguage_FRCA: return "fr";
+        case SetLanguage_ES419: return "es";
+        case SetLanguage_ZHHANS: return "cn";
+        case SetLanguage_ZHHANT: return "cn";
+        default: return "Unknown";
+    }
+}
 u32 GetClock(PcvModule module) {
     u32 out = 0;
     if (hosversionAtLeast(8, 0, 0)) {
@@ -367,10 +402,39 @@ int main(int argc, char **argv) {
         printf(" [Discharging]");
     }
     psmExit();
-    // Fancy color blocks
+    // Local IP
+    nifmInitialize(NifmServiceType_User);
+    NifmInternetConnectionStatus status;
+    rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
+    if (R_FAILED(rc)) {
+        printf(CONSOLE_ESC(17;27H));
+        printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
+    } else if (status == NifmInternetConnectionStatus_Connected) {
+        u32 local_ip = gethostid();
+        struct in_addr addr;
+        addr.s_addr = local_ip;
+        char* ip_str = inet_ntoa(addr);
+        printf(CONSOLE_ESC(17;27H));
+        printf("\e[38;5;33mLocal IP\e[38;5;255m: %s", ip_str);
+    } else {
+        printf("\x1b[20;16HNo active network connection");
+    }
+    nifmExit();
+    // Locale
+    setInitialize();
+    u64 languageCode = 0;
+    rc = setGetSystemLanguage(&languageCode);
+    SetLanguage makeLanguage = 0;
+    rc = setMakeLanguage(languageCode, &makeLanguage);
+    SetRegion regionCode = 0;
+    rc = setGetRegionCode(&regionCode);
     printf(CONSOLE_ESC(18;27H));
+    printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
+    setExit();
+    // Fancy color blocks
+    printf(CONSOLE_ESC(20;27H));
     printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
-    printf(CONSOLE_ESC(19;27H));
+    printf(CONSOLE_ESC(21;27H));
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
         padUpdate(&pad);
