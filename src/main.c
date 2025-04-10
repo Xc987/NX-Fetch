@@ -9,11 +9,29 @@
 bool both = false;
 bool userflag = false;
 int selected = 1;
+char* userName;
+char* deviceName;
 
 char userNames[256][100];
 AccountUid userAccounts[10];
 int selectedUser = 0;
 s32 total_users = 0;
+
+char leftColors[20][15] = {
+    "\e[38;5;33m", "\e[38;5;242m", "\e[38;5;254m","\e[38;5;157m",
+    "\e[38;5;21m", "\e[38;5;172m", "\e[38;5;27m","\e[38;5;220m",
+    "\e[38;5;27m", "\e[38;5;196m", "\e[38;5;33m","\e[38;5;40m",
+    "\e[38;5;198m", "\e[38;5;129m", "\e[38;5;227m", 
+    "\e[38;5;225m", "\e[38;5;198m"
+ };
+
+ char rightColors[20][15] = {
+    "\e[38;5;196m", "\e[38;5;242m", "\e[38;5;254m","\e[38;5;159m",
+    "\e[38;5;227m", "\e[38;5;227m", "\e[38;5;220m","\e[38;5;27m",
+    "\e[38;5;57m", "\e[38;5;196m", "\e[38;5;33m","\e[38;5;40m",
+    "\e[38;5;198m", "\e[38;5;220m", "\e[38;5;227m", 
+    "\e[38;5;120m", "\e[38;5;40m"
+ };
 
 const char* getRegionName(u64 region) {
     switch (region) {
@@ -161,42 +179,41 @@ void printAscii(char* c1, char* c2) {
     printf("%s%s%s%s", c1, "  ##      # ", c2, "#########\n");
     printf("%s%s%s%s", c1, "    ####### ", c2, "#######\n");
 }
-void callPrintAscii() {
-    if (selected == 1){
-        printAscii("\e[38;5;33m", "\e[38;5;196m");
-    } else if (selected == 2) {
-        printAscii("\e[38;5;242m", "\e[38;5;242m");
-    } else if (selected == 3) {
-        printAscii("\e[38;5;254m", "\e[38;5;254m");
-    } else if (selected == 4) {
-        printAscii("\e[38;5;157m", "\e[38;5;159m");
-    } else if (selected == 5) {
-        printAscii("\e[38;5;21m", "\e[38;5;227m");
-    } else if (selected == 6) {
-        printAscii("\e[38;5;172m", "\e[38;5;227m");
-    } else if (selected == 7) {
-        printAscii("\e[38;5;27m", "\e[38;5;220m");
-    } else if (selected == 8) {
-        printAscii("\e[38;5;220m", "\e[38;5;27m");
-    } else if (selected == 9) {
-        printAscii("\e[38;5;27m", "\e[38;5;57m");
-    } else if (selected == 10) {
-        printAscii("\e[38;5;196m", "\e[38;5;196m");
-    } else if (selected == 11) {
-        printAscii("\e[38;5;33m", "\e[38;5;33m");
-    } else if (selected == 12) {
-        printAscii("\e[38;5;40m", "\e[38;5;40m");
-    } else if (selected == 13) {
-        printAscii("\e[38;5;198m", "\e[38;5;198m");
-    } else if (selected == 14) {
-        printAscii("\e[38;5;129m", "\e[38;5;220m");
-    } else if (selected == 15) {
-        printAscii("\e[38;5;227m", "\e[38;5;227m");
-    } else if (selected == 16) {
-        printAscii("\e[38;5;225m", "\e[38;5;120m");
-    } else if (selected == 17) {
-        printAscii("\e[38;5;198m", "\e[38;5;40m");
-    }
+void updateAscii() {
+    char *accentColor = leftColors[selected - 1];
+    printAscii(leftColors[selected - 1], rightColors[selected - 1]);
+    printf(CONSOLE_ESC(0m)CONSOLE_ESC(2;27H));
+    printf("%s%s\e[38;5;255m@%s%s\e[38;5;255m", accentColor, userName, accentColor, deviceName);
+    printf(CONSOLE_ESC(4;27H));
+    printf("%sOS\e[38;5;255m", accentColor);
+    printf(CONSOLE_ESC(5;27H));
+    printf("%sCFW\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(6;27H));
+    printf("%sBL\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(7;27H));
+    printf("%sBL configs\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(8;27H));
+    printf("%sUptime\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(9;27H));
+    printf("%sPackages\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(10;27H));
+    printf("%sResolution\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(11;27H));
+    printf("%sCPU\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(12;27H));
+    printf("%sGPU\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(13;27H));
+    printf("%sMemory\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(14;27H));
+    printf("%sDisk (SD)\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(15;27H));
+    printf("%sDisk (NAND)\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(16;27H));
+    printf("%sBattery\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(17;27H));
+    printf("%sLocal IP\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(18;27H));
+    printf("%sLocale\e[38;5;255m:", accentColor);
 }
 void printConfig(const char *filename) {
     char filepath[512];
@@ -282,17 +299,20 @@ int main(int argc, char **argv) {
         free(user_ids);
         accountExit();
     }
+    deviceName = nickname.nickname;
     printf(CONSOLE_ESC(0m)CONSOLE_ESC(2;27H));
     if (userflag) {
-        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", profileBase.nickname, nickname.nickname);
+        userName = profileBase.nickname;
+        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userName, deviceName);
         printf(CONSOLE_ESC(3;27H));
-        for (int i = 0; i < (strlen(nickname.nickname) + strlen(profileBase.nickname)) + 1; i++) {
+        for (int i = 0; i < (strlen(userName) + strlen(deviceName)) + 1; i++) {
             printf("-");
         }
-    } else { 
-        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userNames[0], nickname.nickname);
+    } else {
+        userName = userNames[0];
+        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userName, deviceName);
         printf(CONSOLE_ESC(3;27H));
-        for (int i = 0; i < (strlen(userNames[0]) + strlen(nickname.nickname)) + 1; i++) {
+        for (int i = 0; i < (strlen(userName) + strlen(deviceName)) + 1; i++) {
             printf("-");
         }
     }
@@ -415,7 +435,7 @@ int main(int argc, char **argv) {
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
     printf(CONSOLE_ESC(14;27H));
-    printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
+    printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB (%.0f%%)", leftSpaceGB, totalSpaceGB, leftSpaceGB / totalSpaceGB * 100);
     consoleUpdate(NULL);
     // NAND
     fsInitialize();
@@ -430,7 +450,7 @@ int main(int argc, char **argv) {
     fsFsClose(&userFs);
     fsExit();
     printf(CONSOLE_ESC(15;27H));
-    printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
+    printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB (%.0f%%)", leftSpaceGB2, totalSpaceGB2, leftSpaceGB2 / totalSpaceGB2 * 100);
     consoleUpdate(NULL);
     // Battery
     psmInitialize();
@@ -490,14 +510,14 @@ int main(int argc, char **argv) {
             if (selected != 17) {
                 selected = selected + 1;
                 printf(CONSOLE_ESC(1;1H));
-                callPrintAscii();
+                updateAscii();
             }
         }
         if (kDown & HidNpadButton_AnyLeft) {
             if (selected != 1) {
                 selected = selected - 1;
                 printf(CONSOLE_ESC(1;1H));
-                callPrintAscii();
+                updateAscii();
             }
         }
         consoleUpdate(NULL);
