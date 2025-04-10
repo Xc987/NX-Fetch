@@ -24,7 +24,7 @@ const char* getRegionName(u64 region) {
 const char* GetLanguageName(u64 languageCode) {
     switch (languageCode) {
         case SetLanguage_JA: return "jp";
-        case SetLanguage_ENUS: return "us";
+        case SetLanguage_ENUS: return "en";
         case SetLanguage_ENGB: return "uk";
         case SetLanguage_FR: return "fr";
         case SetLanguage_DE: return "de";
@@ -219,7 +219,6 @@ int main(int argc, char **argv) {
     padInitializeDefault(&pad);
     printAscii("\e[38;5;33m", "\e[38;5;196m");
     consoleUpdate(NULL);
-
     // Device nickname
     setsysInitialize();
     SetSysDeviceNickName nickname;
@@ -299,7 +298,6 @@ int main(int argc, char **argv) {
     consoleUpdate(NULL);
     // Bootloader configs
     DIR *dir = opendir("/bootloader/ini/");
-    
     printf(CONSOLE_ESC(7;27H));
     printf("\e[38;5;33mBL configs\e[38;5;255m: ");
     struct dirent *entry;
@@ -340,11 +338,19 @@ int main(int argc, char **argv) {
     printf("\e[38;5;33mPackages\e[38;5;255m: %d (nro), %d (ovl), %d (sys)", nroCount, ovlCount, sysCount);
     consoleUpdate(NULL);
     // Screen resolution
-    u32 width, height;
-    NWindow* nw = nwindowGetDefault();
-    nwindowGetDimensions(nw, &width, &height);
-    printf(CONSOLE_ESC(10;27H));
-    printf("\e[38;5;33mResolution\e[38;5;255m: %d x %d ", width, height);
+    AppletOperationMode mode = appletGetOperationMode();        
+    if (mode == AppletOperationMode_Handheld) {
+        u32 width, height;
+        NWindow* nw = nwindowGetDefault();
+        nwindowGetDimensions(nw, &width, &height);
+        printf(CONSOLE_ESC(10;27H));
+        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d [Handheld]", width, height);
+    } else if (mode == AppletOperationMode_Console) {
+        s32 width = 0, height = 0;
+        appletGetDefaultDisplayResolution(&width, &height);
+        printf(CONSOLE_ESC(10;27H));
+        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d [Docked]", width, height);
+    }
     consoleUpdate(NULL);
     // CPU
     printf(CONSOLE_ESC(11;27H));
@@ -461,3 +467,9 @@ int main(int argc, char **argv) {
     consoleExit(NULL);
     return 0;
 }
+
+
+
+
+
+
