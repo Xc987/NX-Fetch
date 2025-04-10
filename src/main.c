@@ -10,6 +10,11 @@ bool both = false;
 bool userflag = false;
 int selected = 1;
 
+char userNames[256][100];
+AccountUid userAccounts[10];
+int selectedUser = 0;
+s32 total_users = 0;
+
 const char* getRegionName(u64 region) {
     switch (region) {
         case SetRegion_JPN: return "JP";
@@ -242,19 +247,52 @@ int main(int argc, char **argv) {
         }
     }
     accountExit();
-    int len = strlen(nickname.nickname);
-    int len2 = strlen(profileBase.nickname);
+    if (userflag == false) {
+        rc = accountInitialize(AccountServiceType_System);
+        if (R_FAILED(rc)) {
+            accountExit();
+        }
+        rc = accountGetUserCount(&total_users);
+        if (R_FAILED(rc)) {
+            accountExit();
+        }
+        AccountUid *user_ids = (AccountUid *)malloc(sizeof(AccountUid) * total_users);
+        s32 actual_users = 0;
+        rc = accountListAllUsers(user_ids, total_users, &actual_users);
+        if (R_FAILED(rc)) {
+            free(user_ids);
+            accountExit();
+        }
+        AccountProfile profile;
+        AccountProfileBase profile_base;
+        for (s32 i = 0; i < actual_users; i++) {
+            userAccounts[i] = user_ids[i];
+            rc = accountGetProfile(&profile, user_ids[i]);
+            if (R_FAILED(rc)) {
+                continue;
+            }
+            rc = accountProfileGet(&profile, NULL, &profile_base);
+            if (R_FAILED(rc)) {
+                accountProfileClose(&profile);
+                continue;
+            }
+            strcpy(userNames[i], profile_base.nickname);
+            accountProfileClose(&profile);
+        }
+        free(user_ids);
+        accountExit();
+    }
     printf(CONSOLE_ESC(0m)CONSOLE_ESC(2;27H));
     if (userflag) {
         printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", profileBase.nickname, nickname.nickname);
         printf(CONSOLE_ESC(3;27H));
-        for (int i = 0; i < (len + len2) + 1; i++) {
+        for (int i = 0; i < (strlen(nickname.nickname) + strlen(profileBase.nickname)) + 1; i++) {
             printf("-");
         }
-    } else {
-        printf("\e[38;5;33m%s\e[38;5;255m", nickname.nickname);
+    } else { 
+        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userNames[0], nickname.nickname);
         printf(CONSOLE_ESC(3;27H));
-        for (int i = 0; i < len ; i++) {
+        for (int i = 0; i < (strlen(userNames[0]) + strlen(nickname.nickname)) + 1; i++) {
             printf("-");
         }
     }
@@ -467,9 +505,3 @@ int main(int argc, char **argv) {
     consoleExit(NULL);
     return 0;
 }
-
-
-
-
-
-
