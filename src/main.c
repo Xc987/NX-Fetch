@@ -158,7 +158,6 @@ void printController(u32 device_type, const char* controller_name) {
         return;
     }
     anycontroller = true;
-    printf(CONSOLE_ESC(30C));
     printf("%s: ", controller_name);
     if (device_type & HidDeviceTypeBits_FullKey)
         printf("Pro Controller, ");
@@ -201,6 +200,7 @@ void printController(u32 device_type, const char* controller_name) {
     
     printf("\b\b");
     printf("\n");
+    printf(CONSOLE_ESC(39C));
 }
 void printAscii(char* c1, char* c2) {
     printf("\n");
@@ -231,7 +231,15 @@ void updateAscii() {
     char *accentColor = leftColors[selected - 1];
     printAscii(leftColors[selected - 1], rightColors[selected - 1]);
     printf(CONSOLE_ESC(0m)CONSOLE_ESC(2;27H));
-    printf("%s%s\e[38;5;255m@%s%s\e[38;5;255m", accentColor, userName, accentColor, deviceName);
+    printf("                                                  ");
+    printf(CONSOLE_ESC(0m)CONSOLE_ESC(2;27H));
+    printf("%s%s\e[38;5;255m@%s%s\e[38;5;255m", accentColor, userNames[selectedUser], accentColor, deviceName);
+    printf(CONSOLE_ESC(3;27H));
+    printf("                                                  ");
+    printf(CONSOLE_ESC(3;27H));
+    for (int i = 0; i < (strlen(userNames[selectedUser]) + strlen(deviceName)) + 1; i++) {
+        printf("-");
+    }
     printf(CONSOLE_ESC(4;27H));
     printf("%sOS\e[38;5;255m", accentColor);
     printf(CONSOLE_ESC(5;27H));
@@ -365,10 +373,9 @@ int main(int argc, char **argv) {
             printf("-");
         }
     } else {
-        userName = userNames[0];
-        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userName, deviceName);
+        printf("\e[38;5;33m%s\e[38;5;255m@\e[38;5;33m%s\e[38;5;255m", userNames[selectedUser], deviceName);
         printf(CONSOLE_ESC(3;27H));
-        for (int i = 0; i < (strlen(userName) + strlen(deviceName)) + 1; i++) {
+        for (int i = 0; i < (strlen(userNames[selectedUser]) + strlen(deviceName)) + 1; i++) {
             printf("-");
         }
     }
@@ -553,7 +560,7 @@ int main(int argc, char **argv) {
     setExit();
     //Controllers
     printf(CONSOLE_ESC(19;27H));
-    printf("\e[38;5;33mControllers\e[38;5;255m:\n");
+    printf("\e[38;5;33mControllers\e[38;5;255m: ");
     for (int i = 0; i < 8; i++) {
         char name[16];
         snprintf(name, sizeof(name), "P%d", i+1);
@@ -594,6 +601,24 @@ int main(int argc, char **argv) {
                     selected = selected - 1;
                     printf(CONSOLE_ESC(1;1H));
                     updateAscii();
+                }
+            }
+            if (kDown & HidNpadButton_L) {
+                if (userflag == false){
+                    if (selectedUser != 0) {
+                        selectedUser -= 1;
+                        printf(CONSOLE_ESC(1;1H));
+                        updateAscii();
+                    }
+                }
+            }
+            if (kDown & HidNpadButton_R) {
+                if (userflag == false) {
+                    if (selectedUser != total_users - 1) {
+                        selectedUser += 1;
+                        printf(CONSOLE_ESC(1;1H));
+                        updateAscii();
+                    }
                 }
             }
         }
