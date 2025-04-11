@@ -8,6 +8,7 @@
 
 bool both = false;
 bool userflag = false;
+bool anycontroller = false;
 int selected = 1;
 char* userName;
 char* deviceName;
@@ -80,7 +81,6 @@ u32 GetClock(PcvModule module) {
     }
     return out / 1000000;
 }
-
 int countNroFiles(const char *directory, int depth) {
     if (depth > 2) return 0;
     int count = 0;
@@ -117,7 +117,6 @@ int countOvlFiles(const char *path) {
     closedir(dir);
     return count;
 }
-
 int countSysFolders() {
     DIR *dir;
     struct dirent *ent;
@@ -153,6 +152,55 @@ int countSysFolders() {
         closedir(dir);
     }
     return count;
+}
+void printController(u32 device_type, const char* controller_name) {
+    if (device_type == 0) {
+        return;
+    }
+    anycontroller = true;
+    printf(CONSOLE_ESC(30C));
+    printf("%s: ", controller_name);
+    if (device_type & HidDeviceTypeBits_FullKey)
+        printf("Pro Controller, ");
+    if (device_type & HidDeviceTypeBits_DebugPad)
+        printf("DebugPad, ");
+    if (device_type & HidDeviceTypeBits_HandheldLeft)
+        printf("Joy-Con left, ");
+    if (device_type & HidDeviceTypeBits_HandheldRight)
+        printf("Joy-Con right, ");
+    if (device_type & HidDeviceTypeBits_JoyLeft)
+        printf("Joy-Con left, ");
+    if (device_type & HidDeviceTypeBits_JoyRight)
+        printf("Joy-Con right, ");
+    if (device_type & HidDeviceTypeBits_Palma)
+        printf("Poké Ball Plus, ");
+    if (device_type & HidDeviceTypeBits_LarkHvcLeft)
+        printf("Famicom left, ");
+    if (device_type & HidDeviceTypeBits_LarkHvcRight)
+        printf("Famicom right, ");
+    if (device_type & HidDeviceTypeBits_LarkNesLeft)
+        printf("NES left, ");
+    if (device_type & HidDeviceTypeBits_LarkNesRight)
+        printf("NES right, ");
+    if (device_type & HidDeviceTypeBits_HandheldLarkHvcLeft)
+        printf("Famicom left, ");
+    if (device_type & HidDeviceTypeBits_HandheldLarkHvcRight)
+        printf("Famicom right, ");
+    if (device_type & HidDeviceTypeBits_HandheldLarkNesLeft)
+        printf("NES left, ");
+    if (device_type & HidDeviceTypeBits_HandheldLarkNesRight)
+        printf("NES right, ");
+    if (device_type & HidDeviceTypeBits_Lucia)
+        printf("SNES controller, ");
+    if (device_type & HidDeviceTypeBits_Lagon)
+        printf("N64 controller, ");
+    if (device_type & HidDeviceTypeBits_Lager)
+        printf("Sega Genesis controller, ");
+    if (device_type & HidDeviceTypeBits_System)
+        printf("Generic controller, ");
+    
+    printf("\b\b");
+    printf("\n");
 }
 void printAscii(char* c1, char* c2) {
     printf("\n");
@@ -214,6 +262,8 @@ void updateAscii() {
     printf("%sLocal IP\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(18;27H));
     printf("%sLocale\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(19;27H));
+    printf("%sControllers\e[38;5;255m:", accentColor);
 }
 void printConfig(const char *filename) {
     char filepath[512];
@@ -236,9 +286,15 @@ void printConfig(const char *filename) {
 }
 int main(int argc, char **argv) {
     consoleInit(NULL);
-    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
-    PadState pad;
-    padInitializeDefault(&pad);
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
+    PadState pads[8];
+    for (int i = 0; i < 8; i++) {
+        if (i == 0) {
+            padInitializeDefault(&pads[i]);
+        } else {
+            padInitialize(&pads[i], i);
+        }
+    }
     printAscii("\e[38;5;33m", "\e[38;5;196m");
     consoleUpdate(NULL);
     // Device nickname
@@ -402,12 +458,12 @@ int main(int argc, char **argv) {
         NWindow* nw = nwindowGetDefault();
         nwindowGetDimensions(nw, &width, &height);
         printf(CONSOLE_ESC(10;27H));
-        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d [Handheld]", width, height);
+        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d @ 60Hz [Handheld]", width, height);
     } else if (mode == AppletOperationMode_Console) {
         s32 width = 0, height = 0;
         appletGetDefaultDisplayResolution(&width, &height);
         printf(CONSOLE_ESC(10;27H));
-        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d [Docked]", width, height);
+        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d @ 60Hz [Docked]", width, height);
     }
     consoleUpdate(NULL);
     // CPU
@@ -495,30 +551,54 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(18;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
+    //Controllers
+    printf(CONSOLE_ESC(19;27H));
+    printf("\e[38;5;33mControllers\e[38;5;255m:\n");
+    for (int i = 0; i < 8; i++) {
+        char name[16];
+        snprintf(name, sizeof(name), "P%d", i+1);
+        printController(hidGetNpadDeviceType(HidNpadIdType_No1 + i), name);
+    }
+    printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other");
+    printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld");
+    if (anycontroller == false){
+        printf(CONSOLE_ESC(19;40H));
+        printf("None");
+    }
     // Fancy color blocks
-    printf(CONSOLE_ESC(20;27H));
+    printf("\n\n");
+    printf(CONSOLE_ESC(27C));
     printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
-    printf(CONSOLE_ESC(21;27H));
+    printf("\n");
+    printf(CONSOLE_ESC(27C));
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
+        bool plusPressed = false;
+
+        for (int i = 0; i < 8; i++) {
+            padUpdate(&pads[i]);
+            u64 kDown = padGetButtonsDown(&pads[i]);
+            if (kDown & HidNpadButton_Plus) {
+                plusPressed = true;
+                break;
+            }
+            if (kDown & HidNpadButton_AnyRight)  {
+                if (selected != 17) {
+                    selected = selected + 1;
+                    printf(CONSOLE_ESC(1;1H));
+                    updateAscii();
+                }
+            }
+            if (kDown & HidNpadButton_AnyLeft) {
+                if (selected != 1) {
+                    selected = selected - 1;
+                    printf(CONSOLE_ESC(1;1H));
+                    updateAscii();
+                }
+            }
+        }
+        if (plusPressed) {
             break;
-        }
-        if (kDown & HidNpadButton_AnyRight) {
-            if (selected != 17) {
-                selected = selected + 1;
-                printf(CONSOLE_ESC(1;1H));
-                updateAscii();
-            }
-        }
-        if (kDown & HidNpadButton_AnyLeft) {
-            if (selected != 1) {
-                selected = selected - 1;
-                printf(CONSOLE_ESC(1;1H));
-                updateAscii();
-            }
         }
         consoleUpdate(NULL);
     }
