@@ -24,16 +24,14 @@ char leftColors[20][15] = {
     "\e[38;5;27m", "\e[38;5;196m", "\e[38;5;33m","\e[38;5;40m",
     "\e[38;5;198m", "\e[38;5;129m", "\e[38;5;227m", 
     "\e[38;5;225m", "\e[38;5;198m"
- };
-
+};
  char rightColors[20][15] = {
     "\e[38;5;196m", "\e[38;5;242m", "\e[38;5;254m","\e[38;5;159m",
     "\e[38;5;227m", "\e[38;5;227m", "\e[38;5;220m","\e[38;5;27m",
     "\e[38;5;57m", "\e[38;5;196m", "\e[38;5;33m","\e[38;5;40m",
     "\e[38;5;198m", "\e[38;5;220m", "\e[38;5;227m", 
     "\e[38;5;120m", "\e[38;5;40m"
- };
-
+};
 const char* getRegionName(u64 region) {
     switch (region) {
         case SetRegion_JPN: return "JP";
@@ -153,50 +151,133 @@ int countSysFolders() {
     }
     return count;
 }
-void printController(u32 device_type, const char* controller_name) {
+void printHidBattery(HidNpadIdType hidDevice) {
+    HidPowerInfo info;
+    hidGetNpadPowerInfoSingle(hidDevice, &info);
+    if (info.battery_level == 4) {
+        printf("\e[38;5;40m100%%\e[38;5;255m, ");
+    } else if (info.battery_level == 3) {
+        printf("\e[38;5;148m75%%\e[38;5;255m, ");
+    } else if (info.battery_level == 2) {
+        printf("\e[38;5;226m50%%\e[38;5;255m, ");
+    } else if (info.battery_level == 1) {
+        printf("\e[38;5;208m25%%\e[38;5;255m, ");
+    } else if (info.battery_level == 0) {
+        printf("\e[38;5;196m0%%\e[38;5;255m, ");
+    }
+}
+void printHidBatteryL(HidNpadIdType hidDevice) {
+    HidPowerInfo info_left;
+    HidPowerInfo info_right;
+    hidGetNpadPowerInfoSplit(hidDevice, &info_left, &info_right);
+    if (info_left.battery_level == 4) {
+        printf("\e[38;5;40m100%%\e[38;5;255m, ");
+    } else if (info_left.battery_level == 3) {
+        printf("\e[38;5;148m75%%\e[38;5;255m, ");
+    } else if (info_left.battery_level == 2) {
+        printf("\e[38;5;226m50%%\e[38;5;255m, ");
+    } else if (info_left.battery_level == 1) {
+        printf("\e[38;5;208m25%%\e[38;5;255m, ");
+    } else if (info_left.battery_level == 0) {
+        printf("\e[38;5;196m0%%\e[38;5;255m, ");
+    }
+}
+void printHidBatteryR(HidNpadIdType hidDevice) {
+    HidPowerInfo info_left;
+    HidPowerInfo info_right;
+    hidGetNpadPowerInfoSplit(hidDevice, &info_left, &info_right);
+    if (info_right.battery_level == 4) {
+        printf("\e[38;5;40m100%%\e[38;5;255m, ");
+    } else if (info_right.battery_level == 3) {
+        printf("\e[38;5;148m75%%\e[38;5;255m, ");
+    } else if (info_right.battery_level == 2) {
+        printf("\e[38;5;226m50%%\e[38;5;255m, ");
+    } else if (info_right.battery_level == 1) {
+        printf("\e[38;5;208m25%%\e[38;5;255m, ");
+    } else if (info_right.battery_level == 0) {
+        printf("\e[38;5;196m0%%\e[38;5;255m, ");
+    }
+}
+void printController(u32 device_type, const char* controller_name, HidNpadIdType hidDevice) {
     if (device_type == 0) {
         return;
     }
     anycontroller = true;
     printf("%s: ", controller_name);
-    if (device_type & HidDeviceTypeBits_FullKey)
-        printf("Pro Controller, ");
-    if (device_type & HidDeviceTypeBits_DebugPad)
-        printf("DebugPad, ");
-    if (device_type & HidDeviceTypeBits_HandheldLeft)
-        printf("Joy-Con left, ");
-    if (device_type & HidDeviceTypeBits_HandheldRight)
-        printf("Joy-Con right, ");
-    if (device_type & HidDeviceTypeBits_JoyLeft)
-        printf("Joy-Con left, ");
-    if (device_type & HidDeviceTypeBits_JoyRight)
-        printf("Joy-Con right, ");
-    if (device_type & HidDeviceTypeBits_Palma)
-        printf("Poké Ball Plus, ");
-    if (device_type & HidDeviceTypeBits_LarkHvcLeft)
-        printf("Famicom left, ");
-    if (device_type & HidDeviceTypeBits_LarkHvcRight)
-        printf("Famicom right, ");
-    if (device_type & HidDeviceTypeBits_LarkNesLeft)
-        printf("NES left, ");
-    if (device_type & HidDeviceTypeBits_LarkNesRight)
-        printf("NES right, ");
-    if (device_type & HidDeviceTypeBits_HandheldLarkHvcLeft)
-        printf("Famicom left, ");
-    if (device_type & HidDeviceTypeBits_HandheldLarkHvcRight)
-        printf("Famicom right, ");
-    if (device_type & HidDeviceTypeBits_HandheldLarkNesLeft)
-        printf("NES left, ");
-    if (device_type & HidDeviceTypeBits_HandheldLarkNesRight)
-        printf("NES right, ");
-    if (device_type & HidDeviceTypeBits_Lucia)
-        printf("SNES controller, ");
-    if (device_type & HidDeviceTypeBits_Lagon)
-        printf("N64 controller, ");
-    if (device_type & HidDeviceTypeBits_Lager)
-        printf("Sega Genesis controller, ");
-    if (device_type & HidDeviceTypeBits_System)
-        printf("Generic controller, ");
+    if (device_type & HidDeviceTypeBits_FullKey) {
+        printf("Pro Controller ");
+        printHidBattery(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_DebugPad) {
+        printf("DebugPad ");
+        printHidBattery(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_HandheldLeft) {
+        printf("Joy-Con L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_HandheldRight) {
+        printf("Joy-Con R ");
+        printHidBatteryR(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_JoyLeft) {
+        printf("Joy-Con L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_JoyRight) {
+        printf("Joy-Con R ");
+        printHidBatteryR(hidDevice);
+    }        
+    if (device_type & HidDeviceTypeBits_Palma) {
+        printf("Poké Ball Plus ");
+    }
+    if (device_type & HidDeviceTypeBits_LarkHvcLeft) {
+        printf("Famicom L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_LarkHvcRight) {
+        printf("Famicom R ");
+        printHidBatteryR(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_LarkNesLeft) {
+        printf("NES L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_LarkNesRight) {
+        printf("NES R ");
+        printHidBatteryR(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_HandheldLarkHvcLeft) {
+        printf("Famicom L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_HandheldLarkHvcRight) {
+        printf("Famicom R ");
+    }
+    if (device_type & HidDeviceTypeBits_HandheldLarkNesLeft) {
+        printf("NES L ");
+        printHidBatteryL(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_HandheldLarkNesRight) {
+        printf("NES R ");
+        printHidBatteryR(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_Lucia) {
+        printf("SNES controller ");
+        printHidBattery(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_Lagon) {
+        printf("N64 controller ");
+        printHidBattery(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_Lager) {
+        printf("Sega Genesis controller ");
+        printHidBattery(hidDevice);
+    }
+    if (device_type & HidDeviceTypeBits_System) {
+        printf("Generic controller ");
+        printHidBattery(hidDevice);
+    }
     
     printf("\b\b");
     printf("\n");
@@ -253,7 +334,7 @@ void updateAscii() {
     printf(CONSOLE_ESC(9;27H));
     printf("%sPackages\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(10;27H));
-    printf("%sResolution\e[38;5;255m:", accentColor);
+    printf("%sDisplay\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(11;27H));
     printf("%sCPU\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(12;27H));
@@ -465,12 +546,12 @@ int main(int argc, char **argv) {
         NWindow* nw = nwindowGetDefault();
         nwindowGetDimensions(nw, &width, &height);
         printf(CONSOLE_ESC(10;27H));
-        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d @ 60Hz [Handheld]", width, height);
+        printf("\e[38;5;33mDisplay\e[38;5;255m: %dx%d @ 60Hz [Handheld]", width, height);
     } else if (mode == AppletOperationMode_Console) {
         s32 width = 0, height = 0;
         appletGetDefaultDisplayResolution(&width, &height);
         printf(CONSOLE_ESC(10;27H));
-        printf("\e[38;5;33mResolution\e[38;5;255m: %dx%d @ 60Hz [Docked]", width, height);
+        printf("\e[38;5;33mDisplay\e[38;5;255m: %dx%d @ 60Hz [Docked]", width, height);
     }
     consoleUpdate(NULL);
     // CPU
@@ -498,7 +579,18 @@ int main(int argc, char **argv) {
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
     printf(CONSOLE_ESC(14;27H));
-    printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB (%.0f%%)", leftSpaceGB, totalSpaceGB, leftSpaceGB / totalSpaceGB * 100);
+    printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
+    if (leftSpaceGB / totalSpaceGB * 100 < 20) {
+        printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
+    } else if (leftSpaceGB / totalSpaceGB * 100 >= 20 && leftSpaceGB / totalSpaceGB * 100 < 40) {
+        printf("(\e[38;5;148m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
+    } else if (leftSpaceGB / totalSpaceGB * 100 >= 40 && leftSpaceGB / totalSpaceGB * 100 < 60) {
+        printf("(\e[38;5;226m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
+    } else if (leftSpaceGB / totalSpaceGB * 100 >= 60 && leftSpaceGB / totalSpaceGB * 100 < 80) {
+        printf("(\e[38;5;208m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
+    } else if (leftSpaceGB / totalSpaceGB * 100 >= 80) {
+        printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
+    }
     consoleUpdate(NULL);
     // NAND
     fsInitialize();
@@ -513,14 +605,36 @@ int main(int argc, char **argv) {
     fsFsClose(&userFs);
     fsExit();
     printf(CONSOLE_ESC(15;27H));
-    printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB (%.0f%%)", leftSpaceGB2, totalSpaceGB2, leftSpaceGB2 / totalSpaceGB2 * 100);
+    printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
+    if (leftSpaceGB2 / totalSpaceGB2 * 100 < 20) {
+        printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
+    } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 20 && leftSpaceGB2 / totalSpaceGB2 * 100 < 40) {
+        printf("(\e[38;5;148m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
+    } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 40 && leftSpaceGB2 / totalSpaceGB2 * 100 < 60) {
+        printf("(\e[38;5;226m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
+    } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 60 && leftSpaceGB2 / totalSpaceGB2 * 100 < 80) {
+        printf("(\e[38;5;208m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
+    } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 80) {
+        printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
+    }
     consoleUpdate(NULL);
     // Battery
     psmInitialize();
     u32 batteryCharge;
     psmGetBatteryChargePercentage(&batteryCharge);
     printf(CONSOLE_ESC(16;27H));
-    printf("\e[38;5;33mBattery\e[38;5;255m: %d%%", batteryCharge);
+    printf("\e[38;5;33mBattery\e[38;5;255m: ");
+    if (batteryCharge >= 80) {
+        printf("\e[38;5;40m%d%%\e[38;5;255m", batteryCharge);
+    } else if (batteryCharge >= 60 && batteryCharge < 80) {
+        printf("\e[38;5;148m%d%%\e[38;5;255m", batteryCharge);
+    } else if (batteryCharge >= 40 && batteryCharge < 60) {
+        printf("\e[38;5;226m%d%%\e[38;5;255m", batteryCharge);
+    } else if (batteryCharge >= 20 && batteryCharge < 40) {
+        printf("\e[38;5;208m%d%%\e[38;5;255m", batteryCharge);
+    } else if (batteryCharge < 20) {
+        printf("\e[38;5;196m%d%%\e[38;5;255m", batteryCharge);
+    }
     PsmChargerType chargerType;
     psmGetChargerType(&chargerType);
     if (chargerType != PsmChargerType_Unconnected){
@@ -564,20 +678,20 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 8; i++) {
         char name[16];
         snprintf(name, sizeof(name), "P%d", i+1);
-        printController(hidGetNpadDeviceType(HidNpadIdType_No1 + i), name);
+        printController(hidGetNpadDeviceType(HidNpadIdType_No1 + i), name, HidNpadIdType_No1 + i);
     }
-    printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other");
-    printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld");
+    printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other", HidNpadIdType_Other);
+    printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld", HidNpadIdType_Handheld);
     if (anycontroller == false){
         printf(CONSOLE_ESC(19;40H));
         printf("None");
     }
     // Fancy color blocks
     printf("\n\n");
-    printf(CONSOLE_ESC(27C));
+    printf(CONSOLE_ESC(26C));
     printf("\e[48;5;235m   \e[48;5;1m   \e[48;5;2m   \e[48;5;3m   \e[48;5;4m   \e[48;5;5m   \e[48;5;6m   \e[48;5;7m   \e[48;5;0m");
     printf("\n");
-    printf(CONSOLE_ESC(27C));
+    printf(CONSOLE_ESC(26C));
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
         bool plusPressed = false;
