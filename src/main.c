@@ -25,13 +25,14 @@ char leftColors[20][15] = {
     "\e[38;5;198m", "\e[38;5;129m", "\e[38;5;227m", 
     "\e[38;5;225m", "\e[38;5;198m"
 };
- char rightColors[20][15] = {
+char rightColors[20][15] = {
     "\e[38;5;196m", "\e[38;5;242m", "\e[38;5;254m","\e[38;5;159m",
     "\e[38;5;227m", "\e[38;5;227m", "\e[38;5;220m","\e[38;5;27m",
     "\e[38;5;57m", "\e[38;5;196m", "\e[38;5;33m","\e[38;5;40m",
     "\e[38;5;198m", "\e[38;5;220m", "\e[38;5;227m", 
     "\e[38;5;120m", "\e[38;5;40m"
 };
+
 const char* getRegionName(u64 region) {
     switch (region) {
         case SetRegion_JPN: return "JP";
@@ -336,22 +337,24 @@ void updateAscii() {
     printf(CONSOLE_ESC(10;27H));
     printf("%sDisplay\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(11;27H));
-    printf("%sCPU\e[38;5;255m:", accentColor);
+    printf("%sTheme\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(12;27H));
-    printf("%sGPU\e[38;5;255m:", accentColor);
+    printf("%sCPU\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(13;27H));
-    printf("%sMemory\e[38;5;255m:", accentColor);
+    printf("%sGPU\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(14;27H));
-    printf("%sDisk (SD)\e[38;5;255m:", accentColor);
+    printf("%sMemory\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(15;27H));
-    printf("%sDisk (NAND)\e[38;5;255m:", accentColor);
+    printf("%sDisk (SD)\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(16;27H));
-    printf("%sBattery\e[38;5;255m:", accentColor);
+    printf("%sDisk (NAND)\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(17;27H));
-    printf("%sLocal IP\e[38;5;255m:", accentColor);
+    printf("%sBattery\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(18;27H));
-    printf("%sLocale\e[38;5;255m:", accentColor);
+    printf("%sLocal IP\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(19;27H));
+    printf("%sLocale\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(20;27H));
     printf("%sControllers\e[38;5;255m:", accentColor);
 }
 void printConfig(const char *filename) {
@@ -554,12 +557,46 @@ int main(int argc, char **argv) {
         printf("\e[38;5;33mDisplay\e[38;5;255m: %dx%d @ 60Hz [Docked]", width, height);
     }
     consoleUpdate(NULL);
-    // CPU
+    // Theme
+    setsysInitialize();
+    ColorSetId colorSet;
+    rc = setsysGetColorSetId(&colorSet);
     printf(CONSOLE_ESC(11;27H));
+    if (colorSet == 1) {
+        printf("\e[38;5;33mTheme\e[38;5;255m: Dark mode, ");
+    } else if (colorSet == 0) {
+        printf("\e[38;5;33mTheme\e[38;5;255m: Light mode, ");
+    }
+    dir = opendir("/atmosphere/contents/0100000000001000/romfs/lyt");
+    if (dir) {
+        closedir(dir);
+        int szsFound = 0;
+        struct dirent* entry;
+        dir = opendir("/atmosphere/contents/0100000000001000/romfs/lyt");
+        while ((entry = readdir(dir)) != NULL) {
+            if (entry->d_type == DT_REG) {
+                char* ext = strrchr(entry->d_name, '.');
+                if (ext && strcasecmp(ext, ".szs") == 0) {
+                    szsFound++;
+                }
+            }
+        }
+        closedir(dir);
+        if (szsFound > 0) {
+            printf("custom theme");
+        } else {
+            printf("stock theme");
+        }
+    } else {
+        printf("stock theme");
+    }
+    setsysExit();
+    // CPU
+    printf(CONSOLE_ESC(12;27H));
     printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
     consoleUpdate(NULL);
     // GPU
-    printf(CONSOLE_ESC(12;27H));
+    printf(CONSOLE_ESC(13;27H));
     printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
     consoleUpdate(NULL);
     // Memory
@@ -567,7 +604,7 @@ int main(int argc, char **argv) {
     u64 usedRam = 0;
     svcGetInfo(&totalRam, InfoType_TotalMemorySize, CUR_PROCESS_HANDLE, 0);
     svcGetInfo(&usedRam, InfoType_UsedMemorySize, CUR_PROCESS_HANDLE, 0);
-    printf(CONSOLE_ESC(13;27H));
+    printf(CONSOLE_ESC(14;27H));
     printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
     consoleUpdate(NULL);
     // SD card
@@ -578,7 +615,7 @@ int main(int argc, char **argv) {
     double totalSpaceGB = (double)totalSpaceBytes / (1024 * 1024 * 1024);
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
-    printf(CONSOLE_ESC(14;27H));
+    printf(CONSOLE_ESC(15;27H));
     printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
     if (leftSpaceGB / totalSpaceGB * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
@@ -604,7 +641,7 @@ int main(int argc, char **argv) {
     double leftSpaceGB2 = totalSpaceGB2 - freeSpaceGB2;
     fsFsClose(&userFs);
     fsExit();
-    printf(CONSOLE_ESC(15;27H));
+    printf(CONSOLE_ESC(16;27H));
     printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     if (leftSpaceGB2 / totalSpaceGB2 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
@@ -622,7 +659,7 @@ int main(int argc, char **argv) {
     psmInitialize();
     u32 batteryCharge;
     psmGetBatteryChargePercentage(&batteryCharge);
-    printf(CONSOLE_ESC(16;27H));
+    printf(CONSOLE_ESC(17;27H));
     printf("\e[38;5;33mBattery\e[38;5;255m: ");
     if (batteryCharge >= 80) {
         printf("\e[38;5;40m%d%%\e[38;5;255m", batteryCharge);
@@ -648,14 +685,14 @@ int main(int argc, char **argv) {
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(17;27H));
+        printf(CONSOLE_ESC(18;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     } else if (status == NifmInternetConnectionStatus_Connected) {
         u32 local_ip = gethostid();
         struct in_addr addr;
         addr.s_addr = local_ip;
         char* ip_str = inet_ntoa(addr);
-        printf(CONSOLE_ESC(17;27H));
+        printf(CONSOLE_ESC(18;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: %s", ip_str);
     } else {
         printf("\x1b[20;16HNo active network connection");
@@ -669,11 +706,11 @@ int main(int argc, char **argv) {
     rc = setMakeLanguage(languageCode, &makeLanguage);
     SetRegion regionCode = 0;
     rc = setGetRegionCode(&regionCode);
-    printf(CONSOLE_ESC(18;27H));
+    printf(CONSOLE_ESC(19;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
     //Controllers
-    printf(CONSOLE_ESC(19;27H));
+    printf(CONSOLE_ESC(20;27H));
     printf("\e[38;5;33mControllers\e[38;5;255m: ");
     for (int i = 0; i < 8; i++) {
         char name[16];
@@ -683,7 +720,7 @@ int main(int argc, char **argv) {
     printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other", HidNpadIdType_Other);
     printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld", HidNpadIdType_Handheld);
     if (anycontroller == false){
-        printf(CONSOLE_ESC(19;40H));
+        printf(CONSOLE_ESC(21;40H));
         printf("None");
     }
     // Fancy color blocks
