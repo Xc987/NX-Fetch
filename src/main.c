@@ -345,16 +345,18 @@ void updateAscii() {
     printf(CONSOLE_ESC(14;27H));
     printf("%sMemory\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(15;27H));
-    printf("%sDisk (SD)\e[38;5;255m:", accentColor);
+    printf("%sDisk (SD CARD)\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(16;27H));
-    printf("%sDisk (NAND)\e[38;5;255m:", accentColor);
+    printf("%sDisk (NAND USER)\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(17;27H));
-    printf("%sBattery\e[38;5;255m:", accentColor);
+    printf("%sDisk (NAND SYSTEM)\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(18;27H));
-    printf("%sLocal IP\e[38;5;255m:", accentColor);
+    printf("%sBattery\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(19;27H));
-    printf("%sLocale\e[38;5;255m:", accentColor);
+    printf("%sLocal IP\e[38;5;255m:", accentColor);
     printf(CONSOLE_ESC(20;27H));
+    printf("%sLocale\e[38;5;255m:", accentColor);
+    printf(CONSOLE_ESC(21;27H));
     printf("%sControllers\e[38;5;255m:", accentColor);
 }
 void printConfig(const char *filename) {
@@ -375,6 +377,29 @@ void printConfig(const char *filename) {
         }
     }
     fclose(file);
+}
+u32 listTitles() {
+    NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
+    int32_t recordCount = 0;
+    Result rc = nsListApplicationRecord(records, 256, 0, &recordCount);
+    printf(CONSOLE_ESC(0m));
+    consoleUpdate(NULL);
+    if (R_SUCCEEDED(rc)) {
+        for (int i = 0; i < recordCount; i++) {
+            u64 titleId = records[i].application_id;
+            Result rc=0;
+            if (R_SUCCEEDED(rc)) { 
+                rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
+                // if (R_SUCCEEDED(rc)) {
+                //     fsdevUnmountDevice("save");
+                //     totalApps += 1;
+                //     getTitleName(titleId, recordCount);
+                // }
+            }
+        }
+    }
+    free(records);
+    return recordCount;
 }
 int main(int argc, char **argv) {
     consoleInit(NULL);
@@ -539,8 +564,11 @@ int main(int argc, char **argv) {
     int nroCount = countNroFiles("/switch", 0);
     int ovlCount = countOvlFiles("/switch/.overlays/");
     int sysCount = countSysFolders();
+    nsInitialize();
+    u32 titleCount = listTitles();
+    nsExit();
     printf(CONSOLE_ESC(9;27H));
-    printf("\e[38;5;33mPackages\e[38;5;255m: %d (nro), %d (ovl), %d (sys)", nroCount, ovlCount, sysCount);
+    printf("\e[38;5;33mPackages\e[38;5;255m: %d Titles, %d (nro), %d (ovl), %d (sys)", titleCount, nroCount, ovlCount, sysCount);
     consoleUpdate(NULL);
     // Screen resolution
     AppletOperationMode mode = appletGetOperationMode();        
@@ -616,7 +644,7 @@ int main(int argc, char **argv) {
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
     printf(CONSOLE_ESC(15;27H));
-    printf("\e[38;5;33mDisk (SD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
+    printf("\e[38;5;33mDisk (SD CARD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
     if (leftSpaceGB / totalSpaceGB * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
     } else if (leftSpaceGB / totalSpaceGB * 100 >= 20 && leftSpaceGB / totalSpaceGB * 100 < 40) {
@@ -629,7 +657,7 @@ int main(int argc, char **argv) {
         printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
     }
     consoleUpdate(NULL);
-    // NAND
+    // NAND USER
     fsInitialize();
     FsFileSystem userFs;
     fsOpenBisFileSystem(&userFs, FsBisPartitionId_User, "");
@@ -642,7 +670,7 @@ int main(int argc, char **argv) {
     fsFsClose(&userFs);
     fsExit();
     printf(CONSOLE_ESC(16;27H));
-    printf("\e[38;5;33mDisk (NAND)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
+    printf("\e[38;5;33mDisk (NAND USER)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     if (leftSpaceGB2 / totalSpaceGB2 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
     } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 20 && leftSpaceGB2 / totalSpaceGB2 * 100 < 40) {
@@ -655,11 +683,36 @@ int main(int argc, char **argv) {
         printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
     }
     consoleUpdate(NULL);
+    // NAND SYSTEM
+    fsInitialize();
+    fsOpenBisFileSystem(&userFs, FsBisPartitionId_System, "");
+    s64 totalSpaceBytes3, freeSpaceBytes3;
+    fsFsGetTotalSpace(&userFs, "/", &totalSpaceBytes3);
+    fsFsGetFreeSpace(&userFs, "/", &freeSpaceBytes3);
+    double totalSpaceGB3 = (double)totalSpaceBytes3 / (1024 * 1024 * 1024);
+    double freeSpaceGB3 = (double)freeSpaceBytes3 / (1024 * 1024 * 1024);
+    double leftSpaceGB3 = totalSpaceGB3 - freeSpaceGB3;
+    fsFsClose(&userFs);
+    fsExit();
+    printf(CONSOLE_ESC(17;27H));
+    printf("\e[38;5;33mDisk (NAND SYSTEM)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB3, totalSpaceGB3);
+    if (leftSpaceGB3 / totalSpaceGB3 * 100 < 20) {
+        printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
+    } else if (leftSpaceGB3 / totalSpaceGB3 * 100 >= 20 && leftSpaceGB3 / totalSpaceGB3 * 100 < 40) {
+        printf("(\e[38;5;148m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
+    } else if (leftSpaceGB3 / totalSpaceGB3 * 100 >= 40 && leftSpaceGB3 / totalSpaceGB3 * 100 < 60) {
+        printf("(\e[38;5;226m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
+    } else if (leftSpaceGB3 / totalSpaceGB3 * 100 >= 60 && leftSpaceGB3 / totalSpaceGB3 * 100 < 80) {
+        printf("(\e[38;5;208m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
+    } else if (leftSpaceGB3 / totalSpaceGB3 * 100 >= 80) {
+        printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
+    }
+    consoleUpdate(NULL);
     // Battery
     psmInitialize();
     u32 batteryCharge;
     psmGetBatteryChargePercentage(&batteryCharge);
-    printf(CONSOLE_ESC(17;27H));
+    printf(CONSOLE_ESC(18;27H));
     printf("\e[38;5;33mBattery\e[38;5;255m: ");
     if (batteryCharge >= 80) {
         printf("\e[38;5;40m%d%%\e[38;5;255m", batteryCharge);
@@ -685,14 +738,14 @@ int main(int argc, char **argv) {
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(18;27H));
+        printf(CONSOLE_ESC(19;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     } else if (status == NifmInternetConnectionStatus_Connected) {
         u32 local_ip = gethostid();
         struct in_addr addr;
         addr.s_addr = local_ip;
         char* ip_str = inet_ntoa(addr);
-        printf(CONSOLE_ESC(18;27H));
+        printf(CONSOLE_ESC(19;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: %s", ip_str);
     } else {
         printf("\x1b[20;16HNo active network connection");
@@ -706,11 +759,11 @@ int main(int argc, char **argv) {
     rc = setMakeLanguage(languageCode, &makeLanguage);
     SetRegion regionCode = 0;
     rc = setGetRegionCode(&regionCode);
-    printf(CONSOLE_ESC(19;27H));
+    printf(CONSOLE_ESC(20;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
     //Controllers
-    printf(CONSOLE_ESC(20;27H));
+    printf(CONSOLE_ESC(21;27H));
     printf("\e[38;5;33mControllers\e[38;5;255m: ");
     for (int i = 0; i < 8; i++) {
         char name[16];
@@ -720,7 +773,7 @@ int main(int argc, char **argv) {
     printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other", HidNpadIdType_Other);
     printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld", HidNpadIdType_Handheld);
     if (anycontroller == false){
-        printf(CONSOLE_ESC(21;40H));
+        printf(CONSOLE_ESC(22;40H));
         printf("None");
     }
     // Fancy color blocks
