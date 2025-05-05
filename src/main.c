@@ -620,8 +620,14 @@ int main(int argc, char **argv) {
     }
     setsysExit();
     // CPU
+    tsInitialize();
+    TsSession ts_session;
+    tsOpenSession(&ts_session, TsDeviceCode_LocationExternal);
+    float temp_c;
+    tsSessionGetTemperature(&ts_session, &temp_c);
+    tsExit();
     printf(CONSOLE_ESC(12;27H));
-    printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz",GetClock(PcvModule_CpuBus));
+    printf("\e[38;5;33mCPU\e[38;5;255m: ARM 4 Cortex-A57 (4) @ %u MHz [%.1fC]",GetClock(PcvModule_CpuBus), temp_c);
     consoleUpdate(NULL);
     // GPU
     printf(CONSOLE_ESC(13;27H));
