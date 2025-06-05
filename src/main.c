@@ -6,18 +6,17 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 
+bool found = false;
 bool both = false;
 bool userflag = false;
 bool anycontroller = false;
 int selected = 1;
 char* userName;
 char* deviceName;
-
-char userNames[256][100];
+char userNames[10][50];
 AccountUid userAccounts[10];
 int selectedUser = 0;
-s32 total_users = 0;
-
+s32 totalUsers = 0;
 char leftColors[20][15] = {
     "\e[38;5;33m", "\e[38;5;242m", "\e[38;5;254m","\e[38;5;157m",
     "\e[38;5;21m", "\e[38;5;172m", "\e[38;5;27m","\e[38;5;220m",
@@ -32,6 +31,49 @@ char rightColors[20][15] = {
     "\e[38;5;198m", "\e[38;5;220m", "\e[38;5;227m", 
     "\e[38;5;120m", "\e[38;5;40m"
 };
+char infoLabels[20][20] = {
+    "OS", "CFW", "BL", "BL Configs", "Uptime","Packages", 
+    "Display", "Theme", "CPU", "GPU", "Memory","Disk (sdmc:/)", 
+    "Disk (user:/)", "Disk (system:/)","Battery", "Local IP", 
+    "Locale", "Controllers"
+};
+
+bool isVersionString(const char* str, size_t len) {
+    if (len < 5) return false;
+    int dot_count = 0;
+    int digit_count = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '.') {
+            dot_count++;
+            if (i == 0 || i == len-1 || str[i+1] == '.') {
+                return false;
+            }
+        } else if (str[i] >= '0' && str[i] <= '9') {
+            digit_count++;
+        } else {
+            return false;
+        }
+    }
+    return (dot_count == 2) && (digit_count >= 3);
+}
+
+void printBootloaderVersion(u8* data, size_t size) {
+    for (size_t i = 0; i < size - 5; i++) {
+        size_t max_search = (i + 32 < size) ? 32 : size - i;
+        for (size_t len = 5; len <= max_search; len++) {
+            char* candidate = (char*)(data + i);
+            if (isVersionString(candidate, len)) {
+                char temp = candidate[len];
+                candidate[len] = '\0';
+                printf("%s, ", candidate);
+                found = true;
+                candidate[len] = temp;
+                i += len - 1;
+                break;
+            }
+        }
+    }
+}
 
 const char* getRegionName(u64 region) {
     switch (region) {
@@ -80,36 +122,21 @@ u32 GetClock(PcvModule module) {
     }
     return out / 1000000;
 }
-int countNroFiles(const char *directory, int depth) {
+int countPackages(const char *directory, int depth, char *extension) {
     if (depth > 2) return 0;
     int count = 0;
     DIR *dir = opendir(directory);
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_REG) { 
-            if (strstr(entry->d_name, ".nro")) {
+            if (strstr(entry->d_name, extension)) {
                 count++;
             }
         } else if (entry->d_type == DT_DIR && depth < 2) { 
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
                 char newPath[PATH_MAX];
                 snprintf(newPath, sizeof(newPath), "%s/%s", directory, entry->d_name);
-                count += countNroFiles(newPath, depth + 1);
-            }
-        }
-    }
-    closedir(dir);
-    return count;
-}
-int countOvlFiles(const char *path) {
-    DIR *dir = opendir(path);
-    int count = 0;
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_REG) {
-            const char *ext = strrchr(entry->d_name, '.');
-            if (ext && strcmp(ext, ".ovl") == 0) {
-                count++;
+                count += countPackages(newPath, depth + 1, extension);
             }
         }
     }
@@ -152,9 +179,7 @@ int countSysFolders() {
     }
     return count;
 }
-void printHidBattery(HidNpadIdType hidDevice) {
-    HidPowerInfo info;
-    hidGetNpadPowerInfoSingle(hidDevice, &info);
+void printHidBatteryProcentage(HidPowerInfo info) {
     if (info.battery_level == 4) {
         printf("\e[38;5;40m100%%\e[38;5;255m, ");
     } else if (info.battery_level == 3) {
@@ -167,37 +192,22 @@ void printHidBattery(HidNpadIdType hidDevice) {
         printf("\e[38;5;196m0%%\e[38;5;255m, ");
     }
 }
+void printHidBattery(HidNpadIdType hidDevice) {
+    HidPowerInfo info;
+    hidGetNpadPowerInfoSingle(hidDevice, &info);
+    printHidBatteryProcentage(info);
+}
 void printHidBatteryL(HidNpadIdType hidDevice) {
     HidPowerInfo info_left;
     HidPowerInfo info_right;
     hidGetNpadPowerInfoSplit(hidDevice, &info_left, &info_right);
-    if (info_left.battery_level == 4) {
-        printf("\e[38;5;40m100%%\e[38;5;255m, ");
-    } else if (info_left.battery_level == 3) {
-        printf("\e[38;5;148m75%%\e[38;5;255m, ");
-    } else if (info_left.battery_level == 2) {
-        printf("\e[38;5;226m50%%\e[38;5;255m, ");
-    } else if (info_left.battery_level == 1) {
-        printf("\e[38;5;208m25%%\e[38;5;255m, ");
-    } else if (info_left.battery_level == 0) {
-        printf("\e[38;5;196m0%%\e[38;5;255m, ");
-    }
+    printHidBatteryProcentage(info_left);
 }
 void printHidBatteryR(HidNpadIdType hidDevice) {
     HidPowerInfo info_left;
     HidPowerInfo info_right;
     hidGetNpadPowerInfoSplit(hidDevice, &info_left, &info_right);
-    if (info_right.battery_level == 4) {
-        printf("\e[38;5;40m100%%\e[38;5;255m, ");
-    } else if (info_right.battery_level == 3) {
-        printf("\e[38;5;148m75%%\e[38;5;255m, ");
-    } else if (info_right.battery_level == 2) {
-        printf("\e[38;5;226m50%%\e[38;5;255m, ");
-    } else if (info_right.battery_level == 1) {
-        printf("\e[38;5;208m25%%\e[38;5;255m, ");
-    } else if (info_right.battery_level == 0) {
-        printf("\e[38;5;196m0%%\e[38;5;255m, ");
-    }
+    printHidBatteryProcentage(info_right);
 }
 void printController(u32 device_type, const char* controller_name, HidNpadIdType hidDevice) {
     if (device_type == 0) {
@@ -279,7 +289,6 @@ void printController(u32 device_type, const char* controller_name, HidNpadIdType
         printf("Generic controller ");
         printHidBattery(hidDevice);
     }
-    
     printf("\b\b");
     printf("\n");
     printf(CONSOLE_ESC(39C));
@@ -323,41 +332,10 @@ void updateAscii() {
         printf("-");
     }
     printf(CONSOLE_ESC(4;27H));
-    printf("%sOS\e[38;5;255m", accentColor);
-    printf(CONSOLE_ESC(5;27H));
-    printf("%sCFW\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(6;27H));
-    printf("%sBL\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(7;27H));
-    printf("%sBL configs\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(8;27H));
-    printf("%sUptime\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(9;27H));
-    printf("%sPackages\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(10;27H));
-    printf("%sDisplay\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(11;27H));
-    printf("%sTheme\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(12;27H));
-    printf("%sCPU\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(13;27H));
-    printf("%sGPU\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(14;27H));
-    printf("%sMemory\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(15;27H));
-    printf("%sDisk (SD CARD)\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(16;27H));
-    printf("%sDisk (NAND USER)\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(17;27H));
-    printf("%sDisk (NAND SYSTEM)\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(18;27H));
-    printf("%sBattery\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(19;27H));
-    printf("%sLocal IP\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(20;27H));
-    printf("%sLocale\e[38;5;255m:", accentColor);
-    printf(CONSOLE_ESC(21;27H));
-    printf("%sControllers\e[38;5;255m:", accentColor);
+    for (int i = 0; i < 18; i++) {
+        printf("%s%s\e[38;5;255m\n", accentColor, infoLabels[i]);
+        printf(CONSOLE_ESC(26C));
+    }
 }
 void printConfig(const char *filename) {
     char filepath[512];
@@ -381,23 +359,7 @@ void printConfig(const char *filename) {
 u32 listTitles() {
     NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
     int32_t recordCount = 0;
-    Result rc = nsListApplicationRecord(records, 256, 0, &recordCount);
-    printf(CONSOLE_ESC(0m));
-    consoleUpdate(NULL);
-    if (R_SUCCEEDED(rc)) {
-        for (int i = 0; i < recordCount; i++) {
-            u64 titleId = records[i].application_id;
-            Result rc=0;
-            if (R_SUCCEEDED(rc)) { 
-                rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
-                // if (R_SUCCEEDED(rc)) {
-                //     fsdevUnmountDevice("save");
-                //     totalApps += 1;
-                //     getTitleName(titleId, recordCount);
-                // }
-            }
-        }
-    }
+    nsListApplicationRecord(records, 256, 0, &recordCount);
     free(records);
     return recordCount;
 }
@@ -442,13 +404,13 @@ int main(int argc, char **argv) {
         if (R_FAILED(rc)) {
             accountExit();
         }
-        rc = accountGetUserCount(&total_users);
+        rc = accountGetUserCount(&totalUsers);
         if (R_FAILED(rc)) {
             accountExit();
         }
-        AccountUid *user_ids = (AccountUid *)malloc(sizeof(AccountUid) * total_users);
+        AccountUid *user_ids = (AccountUid *)malloc(sizeof(AccountUid) * totalUsers);
         s32 actual_users = 0;
-        rc = accountListAllUsers(user_ids, total_users, &actual_users);
+        rc = accountListAllUsers(user_ids, totalUsers, &actual_users);
         if (R_FAILED(rc)) {
             free(user_ids);
             accountExit();
@@ -519,11 +481,27 @@ int main(int argc, char **argv) {
     // Bootloader
     printf(CONSOLE_ESC(6;27H));
     FILE *file = fopen("/bootloader/hekate_ipl.ini", "r");
-    if (file){
-        printf("\e[38;5;33mBL\e[38;5;255m: Hekate IPL");
-        fclose(file);
-    } else {
-        printf("\e[38;5;33mBL\e[38;5;255m: Unknown");
+    if (file) {
+        printf("\e[38;5;33mBL\e[38;5;255m: Hekate IPL ");
+        fclose(file);    
+        FILE* file = fopen("sdmc:/payload.bin", "rb");
+        if (file) {
+            fseek(file, 0, SEEK_END);
+            long file_size = ftell(file);
+            fseek(file, 0, SEEK_SET);
+            if (file_size < 1 * 1024 * 1024) {
+                u8* file_data = malloc(file_size);
+                if (file_data) {
+                    fread(file_data, 1, file_size, file);
+                    fclose(file);
+                    printBootloaderVersion(file_data, file_size);
+                    free(file_data);
+                }
+            }
+        }
+    }
+    if (found) {
+        printf("\b\b");
     }
     consoleUpdate(NULL);
     // Bootloader configs
@@ -541,6 +519,7 @@ int main(int argc, char **argv) {
         printf("None");
     }
     closedir(dir);
+    consoleUpdate(NULL);
     // System uptime
     u64 uptime_ticks = armGetSystemTick();
     u64 uptime_seconds = uptime_ticks / 19200000;
@@ -560,9 +539,10 @@ int main(int argc, char **argv) {
         u64 remaining_hours = (uptime_seconds % 86400) / 3600;
         printf("\e[38;5;33mUptime\e[38;5;255m: %lu days, %lu hours\n", uptime_days, remaining_hours);
     }
+    consoleUpdate(NULL);
     // Packages
-    int nroCount = countNroFiles("/switch", 0);
-    int ovlCount = countOvlFiles("/switch/.overlays/");
+    int nroCount = countPackages("/switch", 0, ".nro");
+    int ovlCount = countPackages("/switch/.overlays/", 0, ".ovl");
     int sysCount = countSysFolders();
     nsInitialize();
     u32 titleCount = listTitles();
@@ -619,6 +599,7 @@ int main(int argc, char **argv) {
         printf("stock theme");
     }
     setsysExit();
+    consoleUpdate(NULL);
     // CPU
     tsInitialize();
     TsSession ts_session;
@@ -650,7 +631,7 @@ int main(int argc, char **argv) {
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
     printf(CONSOLE_ESC(15;27H));
-    printf("\e[38;5;33mDisk (SD CARD)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
+    printf("\e[38;5;33mDisk (sdmc:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
     if (leftSpaceGB / totalSpaceGB * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
     } else if (leftSpaceGB / totalSpaceGB * 100 >= 20 && leftSpaceGB / totalSpaceGB * 100 < 40) {
@@ -676,7 +657,7 @@ int main(int argc, char **argv) {
     fsFsClose(&userFs);
     fsExit();
     printf(CONSOLE_ESC(16;27H));
-    printf("\e[38;5;33mDisk (NAND USER)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
+    printf("\e[38;5;33mDisk (user:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     if (leftSpaceGB2 / totalSpaceGB2 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
     } else if (leftSpaceGB2 / totalSpaceGB2 * 100 >= 20 && leftSpaceGB2 / totalSpaceGB2 * 100 < 40) {
@@ -701,7 +682,7 @@ int main(int argc, char **argv) {
     fsFsClose(&userFs);
     fsExit();
     printf(CONSOLE_ESC(17;27H));
-    printf("\e[38;5;33mDisk (NAND SYSTEM)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB3, totalSpaceGB3);
+    printf("\e[38;5;33mDisk (system:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB3, totalSpaceGB3);
     if (leftSpaceGB3 / totalSpaceGB3 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
     } else if (leftSpaceGB3 / totalSpaceGB3 * 100 >= 20 && leftSpaceGB3 / totalSpaceGB3 * 100 < 40) {
@@ -739,24 +720,25 @@ int main(int argc, char **argv) {
         printf(" [Discharging]");
     }
     psmExit();
+    consoleUpdate(NULL);
     // Local IP
     nifmInitialize(NifmServiceType_User);
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
+    printf(CONSOLE_ESC(19;27H));
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(19;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     } else if (status == NifmInternetConnectionStatus_Connected) {
         u32 local_ip = gethostid();
         struct in_addr addr;
         addr.s_addr = local_ip;
         char* ip_str = inet_ntoa(addr);
-        printf(CONSOLE_ESC(19;27H));
         printf("\e[38;5;33mLocal IP\e[38;5;255m: %s", ip_str);
     } else {
-        printf("\x1b[20;16HNo active network connection");
+        printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     }
     nifmExit();
+    consoleUpdate(NULL);
     // Locale
     setInitialize();
     u64 languageCode = 0;
@@ -768,6 +750,7 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(20;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
+    consoleUpdate(NULL);
     //Controllers
     printf(CONSOLE_ESC(21;27H));
     printf("\e[38;5;33mControllers\e[38;5;255m: ");
@@ -782,6 +765,7 @@ int main(int argc, char **argv) {
         printf(CONSOLE_ESC(22;40H));
         printf("None");
     }
+    consoleUpdate(NULL);
     // Fancy color blocks
     printf("\n\n");
     printf(CONSOLE_ESC(26C));
@@ -791,12 +775,11 @@ int main(int argc, char **argv) {
     printf("\e[48;5;8m   \e[48;5;9m   \e[48;5;10m   \e[48;5;11m   \e[48;5;12m   \e[48;5;13m   \e[48;5;14m   \e[48;5;15m   \e[48;5;0m");
     while (appletMainLoop()) {
         bool plusPressed = false;
-
         for (int i = 0; i < 8; i++) {
             padUpdate(&pads[i]);
             u64 kDown = padGetButtonsDown(&pads[i]);
             if (kDown & HidNpadButton_Plus) {
-                plusPressed = true;
+                plusPressed = true;                
                 break;
             }
             if (kDown & HidNpadButton_AnyRight)  {
@@ -824,7 +807,7 @@ int main(int argc, char **argv) {
             }
             if (kDown & HidNpadButton_R) {
                 if (userflag == false) {
-                    if (selectedUser != total_users - 1) {
+                    if (selectedUser != totalUsers - 1) {
                         selectedUser += 1;
                         printf(CONSOLE_ESC(1;1H));
                         updateAscii();
