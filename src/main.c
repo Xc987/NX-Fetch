@@ -6,7 +6,6 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 
-bool found = false;
 bool both = false;
 bool userflag = false;
 bool anycontroller = false;
@@ -65,8 +64,9 @@ void printBootloaderVersion(u8* data, size_t size) {
             if (isVersionString(candidate, len)) {
                 char temp = candidate[len];
                 candidate[len] = '\0';
-                printf("%s, ", candidate);
-                found = true;
+                if (candidate[0] >= '3' && candidate[0] <= '6') {
+                    printf("%s ", candidate);
+                }
                 candidate[len] = temp;
                 i += len - 1;
                 break;
@@ -500,9 +500,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-    if (found) {
-        printf("\b\b");
-    }
     consoleUpdate(NULL);
     // Bootloader configs
     DIR *dir = opendir("/bootloader/ini/");
@@ -518,6 +515,8 @@ int main(int argc, char **argv) {
     if (!both) {
         printf("None");
     }
+    printf(CONSOLE_ESC(1;1H));
+    printAscii(leftColors[selected - 1], rightColors[selected - 1]);
     closedir(dir);
     consoleUpdate(NULL);
     // System uptime
