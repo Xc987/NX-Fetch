@@ -32,11 +32,10 @@ char rightColors[20][15] = {
 };
 char infoLabels[20][20] = {
     "OS", "CFW", "BL", "BL Configs", "Uptime","Packages", 
-    "Display", "Theme", "CPU", "GPU", "Memory","Disk (sdmc:/)", 
+    "Display", "Theme", "CPU", "GPU", "Memory", "Hardware", "Disk (sdmc:/)", 
     "Disk (user:/)", "Disk (system:/)","Battery", "Local IP", 
     "Locale", "Controllers"
 };
-
 bool isVersionString(const char* str, size_t len) {
     if (len < 5) return false;
     int dot_count = 0;
@@ -55,7 +54,6 @@ bool isVersionString(const char* str, size_t len) {
     }
     return (dot_count == 2) && (digit_count >= 3);
 }
-
 void printBootloaderVersion(u8* data, size_t size) {
     for (size_t i = 0; i < size - 5; i++) {
         size_t max_search = (i + 32 < size) ? 32 : size - i;
@@ -74,7 +72,6 @@ void printBootloaderVersion(u8* data, size_t size) {
         }
     }
 }
-
 const char* getRegionName(u64 region) {
     switch (region) {
         case SetRegion_JPN: return "JP";
@@ -210,6 +207,7 @@ void printHidBatteryR(HidNpadIdType hidDevice) {
     printHidBatteryProcentage(info_right);
 }
 void printController(u32 device_type, const char* controller_name, HidNpadIdType hidDevice) {
+    int both = 0;
     if (device_type == 0) {
         return;
     }
@@ -226,18 +224,22 @@ void printController(u32 device_type, const char* controller_name, HidNpadIdType
     if (device_type & HidDeviceTypeBits_HandheldLeft) {
         printf("Joy-Con L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_HandheldRight) {
         printf("Joy-Con R ");
         printHidBatteryR(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_JoyLeft) {
         printf("Joy-Con L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_JoyRight) {
         printf("Joy-Con R ");
         printHidBatteryR(hidDevice);
+        both += 1;
     }        
     if (device_type & HidDeviceTypeBits_Palma) {
         printf("Poké Ball Plus ");
@@ -245,33 +247,42 @@ void printController(u32 device_type, const char* controller_name, HidNpadIdType
     if (device_type & HidDeviceTypeBits_LarkHvcLeft) {
         printf("Famicom L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_LarkHvcRight) {
         printf("Famicom R ");
         printHidBatteryR(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_LarkNesLeft) {
         printf("NES L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_LarkNesRight) {
         printf("NES R ");
         printHidBatteryR(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_HandheldLarkHvcLeft) {
         printf("Famicom L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_HandheldLarkHvcRight) {
         printf("Famicom R ");
+        printHidBatteryR(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_HandheldLarkNesLeft) {
         printf("NES L ");
         printHidBatteryL(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_HandheldLarkNesRight) {
         printf("NES R ");
         printHidBatteryR(hidDevice);
+        both += 1;
     }
     if (device_type & HidDeviceTypeBits_Lucia) {
         printf("SNES controller ");
@@ -289,7 +300,25 @@ void printController(u32 device_type, const char* controller_name, HidNpadIdType
         printf("Generic controller ");
         printHidBattery(hidDevice);
     }
-    printf("\b\b");
+    unsigned char ch;
+    hidGetNpadInterfaceType(hidDevice, &ch);
+    if (ch == 1) {
+        printf("\b\b (BT)");
+        if (both == 1){
+            printf("  ");
+        }
+    } else if (ch == 3) {
+        printf("\b\b (USB)");
+        if (both == 1){
+            printf("  ");
+        }
+    } else {
+        printf("\b\b");
+        both += 1;
+    }
+    if (both == 1){
+        printf("\b\b");
+    }
     printf("\n");
     printf(CONSOLE_ESC(39C));
 }
@@ -332,7 +361,7 @@ void updateAscii() {
         printf("-");
     }
     printf(CONSOLE_ESC(4;27H));
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 19; i++) {
         printf("%s%s\e[38;5;255m\n", accentColor, infoLabels[i]);
         printf(CONSOLE_ESC(26C));
     }
@@ -621,6 +650,22 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(14;27H));
     printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
     consoleUpdate(NULL);
+    // Hardware
+    setsysInitialize();
+    SetSysProductModel model;
+    setsysGetProductModel(&model);
+    printf(CONSOLE_ESC(15;27H));
+    printf("\e[38;5;33mHardware\e[38;5;255m: ");
+    switch (model) {
+        case SetSysProductModel_Iowa:printf("Iowa, Tegra X1+ (Mariko)"); break;
+        case SetSysProductModel_Hoag:printf("Hoag, Tegra X1+ (Mariko)"); break;
+        case SetSysProductModel_Calcio:printf("Calcio, Tegra X1+ (Mariko)"); break;
+        case SetSysProductModel_Aula:printf("Aula, Tegra X1+ (Mariko)"); break;
+        case SetSysProductModel_Nx:printf("Icosa, Tegra X1 (Erista)"); break;
+        case SetSysProductModel_Copper:printf("Copper, Tegra X1 (Erista)"); break;
+        default:printf("Unknown"); break;
+    }
+    setsysExit();
     // SD card
     FsFileSystem *sdFs = fsdevGetDeviceFileSystem("sdmc");
     s64 totalSpaceBytes, freeSpaceBytes;
@@ -629,7 +674,7 @@ int main(int argc, char **argv) {
     double totalSpaceGB = (double)totalSpaceBytes / (1024 * 1024 * 1024);
     double freeSpaceGB = (double)freeSpaceBytes / (1024 * 1024 * 1024);
     double leftSpaceGB = totalSpaceGB - freeSpaceGB;
-    printf(CONSOLE_ESC(15;27H));
+    printf(CONSOLE_ESC(16;27H));
     printf("\e[38;5;33mDisk (sdmc:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB, totalSpaceGB);
     if (leftSpaceGB / totalSpaceGB * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB / totalSpaceGB * 100);
@@ -655,7 +700,7 @@ int main(int argc, char **argv) {
     double leftSpaceGB2 = totalSpaceGB2 - freeSpaceGB2;
     fsFsClose(&userFs);
     fsExit();
-    printf(CONSOLE_ESC(16;27H));
+    printf(CONSOLE_ESC(17;27H));
     printf("\e[38;5;33mDisk (user:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB2, totalSpaceGB2);
     if (leftSpaceGB2 / totalSpaceGB2 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB2 / totalSpaceGB2 * 100);
@@ -680,7 +725,7 @@ int main(int argc, char **argv) {
     double leftSpaceGB3 = totalSpaceGB3 - freeSpaceGB3;
     fsFsClose(&userFs);
     fsExit();
-    printf(CONSOLE_ESC(17;27H));
+    printf(CONSOLE_ESC(18;27H));
     printf("\e[38;5;33mDisk (system:/)\e[38;5;255m: %.2fGB / %.2fGB ", leftSpaceGB3, totalSpaceGB3);
     if (leftSpaceGB3 / totalSpaceGB3 * 100 < 20) {
         printf("(\e[38;5;40m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
@@ -698,7 +743,7 @@ int main(int argc, char **argv) {
     psmInitialize();
     u32 batteryCharge;
     psmGetBatteryChargePercentage(&batteryCharge);
-    printf(CONSOLE_ESC(18;27H));
+    printf(CONSOLE_ESC(19;27H));
     printf("\e[38;5;33mBattery\e[38;5;255m: ");
     if (batteryCharge >= 80) {
         printf("\e[38;5;40m%d%%\e[38;5;255m", batteryCharge);
@@ -724,7 +769,7 @@ int main(int argc, char **argv) {
     nifmInitialize(NifmServiceType_User);
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
-    printf(CONSOLE_ESC(19;27H));
+    printf(CONSOLE_ESC(20;27H));
     if (R_FAILED(rc)) {
         printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     } else if (status == NifmInternetConnectionStatus_Connected) {
@@ -746,12 +791,12 @@ int main(int argc, char **argv) {
     rc = setMakeLanguage(languageCode, &makeLanguage);
     SetRegion regionCode = 0;
     rc = setGetRegionCode(&regionCode);
-    printf(CONSOLE_ESC(20;27H));
+    printf(CONSOLE_ESC(21;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
     consoleUpdate(NULL);
     //Controllers
-    printf(CONSOLE_ESC(21;27H));
+    printf(CONSOLE_ESC(22;27H));
     printf("\e[38;5;33mControllers\e[38;5;255m: ");
     for (int i = 0; i < 8; i++) {
         char name[16];
