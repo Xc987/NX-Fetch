@@ -30,10 +30,10 @@ char rightColors[20][15] = {
     "\e[38;5;198m", "\e[38;5;220m", "\e[38;5;227m", 
     "\e[38;5;120m", "\e[38;5;40m"
 };
-char infoLabels[20][20] = {
+char infoLabels[30][20] = {
     "OS", "CFW", "BL", "BL Configs", "Uptime","Packages", 
     "Display", "Theme", "CPU", "GPU", "Memory", "Hardware", "Disk (sdmc:/)", 
-    "Disk (user:/)", "Disk (system:/)","Battery", "Local IP", 
+    "Disk (user:/)", "Disk (system:/)", "Gamecard", "Battery", "Local IP", 
     "Locale", "Controllers"
 };
 bool isVersionString(const char* str, size_t len) {
@@ -322,6 +322,99 @@ void printController(u32 device_type, const char* controller_name, HidNpadIdType
     printf("\n");
     printf(CONSOLE_ESC(39C));
 }
+bool getGameCardTitleID(u64 *titleID) {
+    ncmInitialize();
+    Result rc = 0;
+    NcmContentMetaDatabase cmdb = {0};
+    NcmApplicationContentMetaKey *metaKeys = NULL;
+    size_t metaKeysSize = sizeof(NcmApplicationContentMetaKey);
+    s32 written = 0, total = 0;
+    metaKeys = (NcmApplicationContentMetaKey*)malloc(metaKeysSize);
+    if (!metaKeys) return false;
+    rc = ncmOpenContentMetaDatabase(&cmdb, NcmStorageId_GameCard);
+    if (R_FAILED(rc)) {
+        free(metaKeys);
+        return false;
+    }
+    rc = ncmContentMetaDatabaseListApplication(&cmdb, &total, &written, metaKeys, 1, NcmContentMetaType_Application);
+    if (R_FAILED(rc)) {
+        free(metaKeys);
+        ncmContentMetaDatabaseClose(&cmdb);
+        return false;
+    }
+    if (total > written) {
+        metaKeysSize = sizeof(NcmApplicationContentMetaKey) * total;
+        NcmApplicationContentMetaKey *tmp = (NcmApplicationContentMetaKey*)realloc(metaKeys, metaKeysSize);
+        if (!tmp) {
+            free(metaKeys);
+            ncmContentMetaDatabaseClose(&cmdb);
+            return false;
+        }
+        metaKeys = tmp;
+        rc = ncmContentMetaDatabaseListApplication(&cmdb, &total, &written, metaKeys, total, NcmContentMetaType_Application);
+        if (R_FAILED(rc) || written != total) {
+            free(metaKeys);
+            ncmContentMetaDatabaseClose(&cmdb);
+            return false;
+        }
+    }
+    if (total > 0) {
+        *titleID = metaKeys[0].application_id;
+    }
+    else {
+        free(metaKeys);
+        ncmContentMetaDatabaseClose(&cmdb);
+        return false;
+    }
+    free(metaKeys);
+    ncmContentMetaDatabaseClose(&cmdb);
+    ncmExit();
+    return true;
+}
+void printTitleName(u64 titleID) {
+    Result rc=0;
+    u64 application_id=titleID;
+    NsApplicationControlData *buf=NULL;
+    u64 outsize=0;
+    NacpLanguageEntry *langentry = NULL;
+    char name[0x201];
+    buf = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
+    if (buf==NULL) {
+        rc = MAKERESULT(Module_Libnx, LibnxError_OutOfMemory);
+    } else {
+        memset(buf, 0, sizeof(NsApplicationControlData));
+    }
+
+    if (R_SUCCEEDED(rc)) {
+        rc = nsInitialize();
+        if (R_FAILED(rc)) {
+            printf("nsInitialize() failed: 0x%x\n", rc);
+        }
+    }
+    if (R_SUCCEEDED(rc)) {
+        rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, application_id, buf, sizeof(NsApplicationControlData), &outsize);
+        if (R_FAILED(rc)) {
+            printf("nsGetApplicationControlData() failed: 0x%x\n", rc);
+        }
+        if (outsize < sizeof(buf->nacp)) {
+            rc = -1;
+            printf("Outsize is too small: 0x%lx.\n", outsize);
+        }
+        if (R_SUCCEEDED(rc)) {
+            rc = nacpGetLanguageEntry(&buf->nacp, &langentry);
+
+            if (R_FAILED(rc) || langentry==NULL) printf("Failed to load LanguageEntry.\n");
+        }
+        if (R_SUCCEEDED(rc)) {
+            memset(name, 0, sizeof(name));
+            strncpy(name, langentry->name, sizeof(name)-1);
+            printf(CONSOLE_ESC(19;27H));
+            printf("\e[38;5;33mGamecard\e[38;5;255m: %s", name);
+        }
+        nsExit();
+    }
+    free(buf);
+}
 void printAscii(char* c1, char* c2) {
     printf("\n");
     printf("%s%s%s%s", c1, "    ####### ", c2, "#######\n");
@@ -361,7 +454,7 @@ void updateAscii() {
         printf("-");
     }
     printf(CONSOLE_ESC(4;27H));
-    for (int i = 0; i < 19; i++) {
+    for (int i = 0; i < 20; i++) {
         printf("%s%s\e[38;5;255m\n", accentColor, infoLabels[i]);
         printf(CONSOLE_ESC(26C));
     }
@@ -643,12 +736,21 @@ int main(int argc, char **argv) {
     printf("\e[38;5;33mGPU\e[38;5;255m: Nvidia GM20B @ %u MHz",GetClock(PcvModule_GPU));
     consoleUpdate(NULL);
     // Memory
-    u64 totalRam = 0;
-    u64 usedRam = 0;
-    svcGetInfo(&totalRam, InfoType_TotalMemorySize, CUR_PROCESS_HANDLE, 0);
-    svcGetInfo(&usedRam, InfoType_UsedMemorySize, CUR_PROCESS_HANDLE, 0);
+    u64 RAM_Total_u[4];
+    u64 RAM_Used_u[4];
+    float RAM_Total_f[4];
+    float RAM_Used_f;
+    float RAM_Total_all_f = 0, RAM_Used_all_f = 0;
+    for (int i = 0; i < 4; i++) {
+        svcGetSystemInfo(&RAM_Total_u[i], 0, INVALID_HANDLE, i);
+        svcGetSystemInfo(&RAM_Used_u[i], 1, INVALID_HANDLE, i);
+        RAM_Total_f[i] = (float)RAM_Total_u[i] / (1024 * 1024);
+        RAM_Used_f = (float)RAM_Used_u[i] / (1024 * 1024);
+        RAM_Total_all_f += RAM_Total_f[i];
+        RAM_Used_all_f += RAM_Used_f;
+    }
     printf(CONSOLE_ESC(14;27H));
-    printf("\e[38;5;33mMemory\e[38;5;255m: %ldMB / %ldMB @ %u MHz", (usedRam / 1024 / 1024), (totalRam / 1024 / 1024), GetClock(PcvModule_EMC));
+    printf("\e[38;5;33mMemory\e[38;5;255m: %.fMB / %.fMB @ %u MHz", RAM_Used_all_f, RAM_Total_all_f, GetClock(PcvModule_EMC));
     consoleUpdate(NULL);
     // Hardware
     setsysInitialize();
@@ -739,11 +841,26 @@ int main(int argc, char **argv) {
         printf("(\e[38;5;196m%.0f%%\e[38;5;255m)", leftSpaceGB3 / totalSpaceGB3 * 100);
     }
     consoleUpdate(NULL);
+    // Game cartradge
+    FsDeviceOperator dev_op;
+    fsOpenDeviceOperator(&dev_op);
+    bool inserted;
+    fsDeviceOperatorIsGameCardInserted(&dev_op, &inserted);
+    if (inserted) {
+        u64 titleID = 0;
+        if (getGameCardTitleID(&titleID))
+        {
+            printTitleName(titleID);
+        }
+    } else {
+        printf(CONSOLE_ESC(19;27H));
+        printf("\e[38;5;33mGamecard\e[38;5;255m: Not inserted!");
+    }
     // Battery
     psmInitialize();
     u32 batteryCharge;
     psmGetBatteryChargePercentage(&batteryCharge);
-    printf(CONSOLE_ESC(19;27H));
+    printf(CONSOLE_ESC(20;27H));
     printf("\e[38;5;33mBattery\e[38;5;255m: ");
     if (batteryCharge >= 80) {
         printf("\e[38;5;40m%d%%\e[38;5;255m", batteryCharge);
@@ -769,7 +886,7 @@ int main(int argc, char **argv) {
     nifmInitialize(NifmServiceType_User);
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
-    printf(CONSOLE_ESC(20;27H));
+    printf(CONSOLE_ESC(21;27H));
     if (R_FAILED(rc)) {
         printf("\e[38;5;33mLocal IP\e[38;5;255m: Not connected!");
     } else if (status == NifmInternetConnectionStatus_Connected) {
@@ -791,12 +908,12 @@ int main(int argc, char **argv) {
     rc = setMakeLanguage(languageCode, &makeLanguage);
     SetRegion regionCode = 0;
     rc = setGetRegionCode(&regionCode);
-    printf(CONSOLE_ESC(21;27H));
+    printf(CONSOLE_ESC(22;27H));
     printf("\e[38;5;33mLocale\e[38;5;255m: %s_%s\n", GetLanguageName(makeLanguage), getRegionName(regionCode));
     setExit();
     consoleUpdate(NULL);
     //Controllers
-    printf(CONSOLE_ESC(22;27H));
+    printf(CONSOLE_ESC(23;27H));
     printf("\e[38;5;33mControllers\e[38;5;255m: ");
     for (int i = 0; i < 8; i++) {
         char name[16];
@@ -806,7 +923,7 @@ int main(int argc, char **argv) {
     printController(hidGetNpadDeviceType(HidNpadIdType_Other), "Other", HidNpadIdType_Other);
     printController(hidGetNpadDeviceType(HidNpadIdType_Handheld), "Handheld", HidNpadIdType_Handheld);
     if (anycontroller == false){
-        printf(CONSOLE_ESC(22;40H));
+        printf(CONSOLE_ESC(23;40H));
         printf("None");
     }
     consoleUpdate(NULL);
