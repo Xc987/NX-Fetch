@@ -6,7 +6,6 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 
-bool test = true;
 bool both = false;
 bool userflag = false;
 bool anycontroller = false;
