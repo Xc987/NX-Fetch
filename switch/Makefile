@@ -12,7 +12,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 # project settings, check docs
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET		:=	NX-Fetch
 BUILD		:=	build
 SOURCES		:=	src
 DATA		:=	data
@@ -20,7 +20,7 @@ INCLUDES	:=	include
 #ROMFS		:=	romfs
 APP_TITLE   := NX Fetch
 APP_AUTHOR  := Xc98
-APP_VERSION := 1.3.0
+APP_VERSION := 1.4.0
 
 #---------------------------------------------------------------------------------
 # options for code generation

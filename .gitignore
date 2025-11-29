@@ -1,4 +1,4 @@
-/build
-NX-Fetch.elf
-NX-Fetch.nacp
-NX-Fetch.nro
+switch/build
+switch/NX-Fetch.elf
+switch/NX-Fetch.nacp
+switch/NX-Fetch.nro
